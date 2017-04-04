@@ -1,0 +1,5 @@
+﻿  main.cpp
+c:\users\fabian\source\repos\cgue17-supernova\supernova\supernova\main.cpp(29): warning C4551: function call missing argument list
+c:\users\fabian\source\repos\cgue17-supernova\supernova\supernova\main.cpp(40): warning C4551: function call missing argument list
+  Supernova.vcxproj -> C:\Users\Fabian\Source\Repos\cgue17-supernova\Supernova\Debug\Supernova.exe
+  Supernova.vcxproj -> C:\Users\Fabian\Source\Repos\cgue17-supernova\Supernova\Debug\Supernova.pdb (Full PDB)

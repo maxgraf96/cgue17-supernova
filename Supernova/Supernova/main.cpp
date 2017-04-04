@@ -2,6 +2,9 @@
 #include<glew.h>
 #include<glfw3.h>
 
+#include "Shader.hpp"
+using namespace supernova;
+
 void init(GLFWwindow* window);
 void update(float time_delta);
 void draw();
@@ -75,9 +78,28 @@ void main() {
 		glfwSwapBuffers(window);
 
 		//catch errors
-		if (glGetError() != GL_NO_ERROR)
-		{
-			std::cerr << "GL ERROR DETECTED!" << std::endl;
+		GLenum error = glGetError();
+
+		if (error != GL_NO_ERROR) {
+			switch (error) {
+			case GL_INVALID_ENUM:
+				std::cerr << "GL: enum argument out of range." << std::endl;
+				break;
+			case GL_INVALID_VALUE:
+				std::cerr << "GL: Numeric argument out of range." << std::endl;
+				break;
+			case GL_INVALID_OPERATION:
+				std::cerr << "GL: Operation illegal in current state." << std::endl;
+				break;
+			case GL_INVALID_FRAMEBUFFER_OPERATION:
+				std::cerr << "GL: Framebuffer object is not complete." << std::endl;
+				break;
+			case GL_OUT_OF_MEMORY:
+				std::cerr << "GL: Not enough memory left to execute command." << std::endl;
+				break;
+			default:
+				std::cerr << "GL: Unknown error." << std::endl;
+			}
 		}
 	}
 
