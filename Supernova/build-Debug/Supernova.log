@@ -1,9 +1,5 @@
 ﻿  Shader.cpp
-c:\users\max\source\repos\cgue17-supernova1\cgue17-supernova\supernova\supernova\shader.cpp(66): error C2664: 'void (GLuint,GLenum,GLint *)': cannot convert argument 3 from 'GLuint *' to 'GLint *'
-  c:\users\max\source\repos\cgue17-supernova1\cgue17-supernova\supernova\supernova\shader.cpp(66): note: Types pointed to are unrelated; conversion requires reinterpret_cast, C-style cast or function-style cast
-c:\users\max\source\repos\cgue17-supernova1\cgue17-supernova\supernova\supernova\shader.cpp(102): error C2664: 'void (GLuint,GLenum,GLint *)': cannot convert argument 3 from 'GLuint *' to 'GLint *'
-  c:\users\max\source\repos\cgue17-supernova1\cgue17-supernova\supernova\supernova\shader.cpp(102): note: Types pointed to are unrelated; conversion requires reinterpret_cast, C-style cast or function-style cast
-  main.cpp
-c:\users\max\source\repos\cgue17-supernova1\cgue17-supernova\supernova\supernova\main.cpp(32): warning C4551: function call missing argument list
-c:\users\max\source\repos\cgue17-supernova1\cgue17-supernova\supernova\supernova\main.cpp(43): warning C4551: function call missing argument list
-  Generating Code...
+  LINK : C:\Users\Max\Source\Repos\cgue17-supernova\Supernova\Debug\Supernova.exe not found or not built by the last incremental link; performing full link
+LINK : warning LNK4098: defaultlib 'MSVCRT' conflicts with use of other libs; use /NODEFAULTLIB:library
+  Supernova.vcxproj -> C:\Users\Max\Source\Repos\cgue17-supernova\Supernova\Debug\Supernova.exe
+  Supernova.vcxproj -> C:\Users\Max\Source\Repos\cgue17-supernova\Supernova\Debug\Supernova.pdb (Full PDB)

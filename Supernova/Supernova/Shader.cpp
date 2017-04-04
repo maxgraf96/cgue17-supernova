@@ -62,7 +62,7 @@ void Shader::loadShader(const std::string& shader, GLenum shaderType, GLuint& ha
 		glGetShaderiv(handle, GL_COMPILE, &succeded);
 
 		if (succeded == GL_FALSE || !glIsShader(handle)) {
-			GLuint logSize;
+			GLint logSize;
 			glGetShaderiv(handle, GL_INFO_LOG_LENGTH, &logSize);
 
 			auto message = std::make_unique<char[]>(logSize);
@@ -98,7 +98,7 @@ void Shader::link() {
 	glGetProgramiv(programHandle, GL_LINK_STATUS, &succeded);
 
 	if (!succeded) {
-		GLuint logSize;
+		GLint logSize;
 		glGetShaderiv(programHandle, GL_INFO_LOG_LENGTH, &logSize);
 
 		auto message = std::make_unique<char[]>(logSize);
