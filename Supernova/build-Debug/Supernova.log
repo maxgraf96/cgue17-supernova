@@ -1,5 +1,9 @@
-﻿  main.cpp
-c:\users\fabian\source\repos\cgue17-supernova\supernova\supernova\main.cpp(29): warning C4551: function call missing argument list
-c:\users\fabian\source\repos\cgue17-supernova\supernova\supernova\main.cpp(40): warning C4551: function call missing argument list
-  Supernova.vcxproj -> C:\Users\Fabian\Source\Repos\cgue17-supernova\Supernova\Debug\Supernova.exe
-  Supernova.vcxproj -> C:\Users\Fabian\Source\Repos\cgue17-supernova\Supernova\Debug\Supernova.pdb (Full PDB)
+﻿  Shader.cpp
+c:\users\max\source\repos\cgue17-supernova1\cgue17-supernova\supernova\supernova\shader.cpp(66): error C2664: 'void (GLuint,GLenum,GLint *)': cannot convert argument 3 from 'GLuint *' to 'GLint *'
+  c:\users\max\source\repos\cgue17-supernova1\cgue17-supernova\supernova\supernova\shader.cpp(66): note: Types pointed to are unrelated; conversion requires reinterpret_cast, C-style cast or function-style cast
+c:\users\max\source\repos\cgue17-supernova1\cgue17-supernova\supernova\supernova\shader.cpp(102): error C2664: 'void (GLuint,GLenum,GLint *)': cannot convert argument 3 from 'GLuint *' to 'GLint *'
+  c:\users\max\source\repos\cgue17-supernova1\cgue17-supernova\supernova\supernova\shader.cpp(102): note: Types pointed to are unrelated; conversion requires reinterpret_cast, C-style cast or function-style cast
+  main.cpp
+c:\users\max\source\repos\cgue17-supernova1\cgue17-supernova\supernova\supernova\main.cpp(32): warning C4551: function call missing argument list
+c:\users\max\source\repos\cgue17-supernova1\cgue17-supernova\supernova\supernova\main.cpp(43): warning C4551: function call missing argument list
+  Generating Code...
