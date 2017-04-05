@@ -12,7 +12,7 @@ using namespace supernova;
 using namespace supernova::scene;
 
 void init(GLFWwindow* window);
-void update(float time_delta, bool pressed);
+void update(float time_delta, int pressed);
 void draw();
 void cleanup();
 
@@ -48,7 +48,7 @@ void main(int argc, char** argv) {
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
 	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
-	auto window = glfwCreateWindow(width, height, "Test Window", nullptr, nullptr); //TODO: chagnge title
+	auto window = glfwCreateWindow(width, height, "Test Window", nullptr, nullptr);
 
 	if (!window) {
 		std::cerr << "ERROR: Could not open window" << std::endl;
@@ -93,9 +93,12 @@ void main(int argc, char** argv) {
 			glfwSetWindowShouldClose(window, true);
 		}
 
-		bool pressed = false;
+		int pressed = 0;
 		if (glfwGetKey(window, GLFW_KEY_UP)) {
-			pressed = true;
+			pressed = 1;
+		}
+		else if (glfwGetKey(window, GLFW_KEY_DOWN)) {
+			pressed = -1;
 		}
 
 		//update game components
@@ -154,7 +157,8 @@ void init(GLFWwindow* window) {
 	glfwGetWindowSize(window, &width, &height);
 
 	auto projection = glm::perspective(30.0f, width / (float)height, 0.1f, 20.0f);
-	auto view = glm::translate(glm::mat4(1), glm::vec3(0.0f, 0.0f, -2.0f));
+	auto view = glm::translate(glm::mat4(1), glm::vec3(0.0f, 0.2f, -2.0f));
+	view = glm::rotate(view, glm::radians(-25.0f), glm::vec3(1, 0, 0));
 	auto view_projection = projection * view;
 
 	auto view_projection_location = glGetUniformLocation(shader->programHandle, "proj");
@@ -164,7 +168,7 @@ void init(GLFWwindow* window) {
 
 }
 
-void update(float time_delta, bool pressed) {
+void update(float time_delta, int pressed) {
 	cube->update(time_delta, pressed);
 }
 

@@ -18,7 +18,7 @@ namespace supernova {
 			Cube(glm::mat4& matrix, Shader* shader);
 			virtual ~Cube();
 
-			virtual void update(float time_delta, bool pressed);
+			virtual void update(float time_delta, int pressed);
 			virtual void draw();
 
 		private:

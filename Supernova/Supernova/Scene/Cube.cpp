@@ -62,9 +62,12 @@ Cube::~Cube() {
 	glDeleteVertexArrays(1, &vao);
 }
 
-void Cube::update(float time_delta, bool pressed) {
-	if (pressed) {
+void Cube::update(float time_delta, int pressed) {
+	if (pressed == 1) {
 		modelMatrix = glm::rotate(modelMatrix, glm::radians(90.0f) * time_delta, glm::vec3(0, 1, 0));
+	}
+	else if (pressed == -1) {
+		modelMatrix = glm::rotate(modelMatrix, glm::radians(-90.0f) * time_delta, glm::vec3(0, 1, 0));
 	}
 	else {
 		modelMatrix = glm::rotate(modelMatrix, glm::radians(0.0f) * time_delta, glm::vec3(0, 1, 0));
