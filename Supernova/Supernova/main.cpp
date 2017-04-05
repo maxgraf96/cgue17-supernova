@@ -1,14 +1,21 @@
 #include<iostream>	
+#include<memory>
 #include<glew.h>
 #include<glfw3.h>
 
 #include "Shader.hpp"
+#include "Scene/Cube.hpp"
 using namespace supernova;
+using namespace supernova::scene;
 
 void init(GLFWwindow* window);
 void update(float time_delta);
 void draw();
 void cleanup();
+
+//make non global later!
+std::unique_ptr<Shader> shader;
+std::unique_ptr<Cube> cube;
 
 const int width = 1280;
 const int height = 720;
@@ -114,16 +121,21 @@ void init(GLFWwindow* window) {
 
 	glClearColor(0.35f, 0.36f, 0.43f, 0.3f);
 	glViewport(0, 0, width, height);
+
+	shader = std::make_unique<Shader>("Shader/basic.vert", "Shader/basic.frag");
+	cube = std::make_unique<Cube>(glm::mat4(1.0f), shader.get());
 }
 
 void update(float time_delta) {
-
+	cube->update();
 }
 
 void draw() {
-
+	shader->useShader();
+	cube->draw();
 }
 
 void cleanup() {
-
+	cube.reset(nullptr);
+	shader.reset(nullptr);
 }

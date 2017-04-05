@@ -89,6 +89,7 @@ void Shader::link() {
 	glAttachShader(programHandle, fragmentHandle);
 
 	//Bind output here
+	glBindFragDataLocation(programHandle, 0, "fragColor");
 
 	//link programs
 	glLinkProgram(programHandle);
@@ -99,12 +100,12 @@ void Shader::link() {
 
 	if (succeded == GL_FALSE) {
 		GLint logSize;
-		glGetShaderiv(programHandle, GL_INFO_LOG_LENGTH, &logSize);
+		glGetProgramiv(programHandle, GL_INFO_LOG_LENGTH, &logSize);
 
 		auto message = std::make_unique<char[]>(logSize);
 		glGetProgramInfoLog(programHandle, logSize, nullptr, message.get());
 
-		std::cerr << "Failed to compile shader" << std::endl;
+		std::cerr << "Failed to link shader program" << std::endl;
 		std::cerr << message.get() << std::endl;
 		system("PAUSE");
 

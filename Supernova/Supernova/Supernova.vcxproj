@@ -160,11 +160,14 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="Scene\Cube.cpp" />
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="Scene\SceneObject.cpp" />
     <ClCompile Include="Shader.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="SceneObject.hpp" />
+    <ClInclude Include="Scene\Cube.hpp" />
+    <ClInclude Include="Scene\SceneObject.hpp" />
     <ClInclude Include="Shader.hpp" />
   </ItemGroup>
   <ItemGroup>
