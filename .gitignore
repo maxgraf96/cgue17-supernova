@@ -35,3 +35,7 @@
 *.sdf
 *.tlog
 *.log
+build-Debug/
+build-Release/
+.db
+.opendb

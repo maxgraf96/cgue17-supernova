@@ -26,5 +26,12 @@
     <ClInclude Include="Shader.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="SceneObject.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Shader\basic.vert" />
+    <None Include="Shader\basic.frag" />
   </ItemGroup>
 </Project>
