@@ -97,7 +97,7 @@ void Shader::link() {
 	GLint succeded;
 	glGetProgramiv(programHandle, GL_LINK_STATUS, &succeded);
 
-	if (!succeded) {
+	if (succeded == GL_FALSE) {
 		GLint logSize;
 		glGetShaderiv(programHandle, GL_INFO_LOG_LENGTH, &logSize);
 
