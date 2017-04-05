@@ -1,7 +1,10 @@
 #include<iostream>	
+#include<sstream>
 #include<memory>
 #include<glew.h>
 #include<glfw3.h>
+#include <glm/gtc/type_ptr.hpp>
+#include "glm/gtc/matrix_transform.hpp"
 
 #include "Shader.hpp"
 #include "Scene/Cube.hpp"
@@ -9,7 +12,7 @@ using namespace supernova;
 using namespace supernova::scene;
 
 void init(GLFWwindow* window);
-void update(float time_delta);
+void update(float time_delta, bool pressed);
 void draw();
 void cleanup();
 
@@ -17,15 +20,28 @@ void cleanup();
 std::unique_ptr<Shader> shader;
 std::unique_ptr<Cube> cube;
 
-const int width = 1280;
-const int height = 720;
+int width = 1280;
+int height = 720;
 
-void main() {
+void main(int argc, char** argv) {
 
 	if (!glfwInit()) {
 		std::cerr << "ERROR: Could not init glfw" << std::endl;
 		system("PAUSE");
 		exit(EXIT_FAILURE);
+	}
+
+	if (argc >= 3) {
+		if ((std::stringstream(argv[1]) >> width).fail()) {
+			std::cerr << "ERROR: Could not parse first command-line-argument as integer." << std::endl;
+			system("PAUSE");
+			exit(EXIT_FAILURE);
+		}
+		if ((std::stringstream(argv[2]) >> height).fail()) {
+			std::cerr << "ERROR: Could not parse second command-line-argument as integer." << std::endl;
+			system("PAUSE");
+			exit(EXIT_FAILURE);
+		}
 	}
 
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
@@ -59,7 +75,7 @@ void main() {
 
 	while (running && !glfwWindowShouldClose(window)) {
 
-		//cleare frame and depth buffer
+		//clear frame and depth buffer
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 		//compute frame time delta
@@ -77,8 +93,13 @@ void main() {
 			glfwSetWindowShouldClose(window, true);
 		}
 
+		bool pressed = false;
+		if (glfwGetKey(window, GLFW_KEY_UP)) {
+			pressed = true;
+		}
+
 		//update game components
-		update(time_delta);
+		update(time_delta, pressed);
 
 		//draw game components
 		draw();
@@ -117,6 +138,7 @@ void main() {
 }
 
 void init(GLFWwindow* window) {
+	glEnable(GL_DEPTH_TEST);
 	glfwSetWindowTitle(window, "Supernova");
 
 	glClearColor(0.35f, 0.36f, 0.43f, 0.3f);
@@ -124,13 +146,35 @@ void init(GLFWwindow* window) {
 
 	shader = std::make_unique<Shader>("Shader/basic.vert", "Shader/basic.frag");
 	cube = std::make_unique<Cube>(glm::mat4(1.0f), shader.get());
+
+	shader->useShader();
+
+	int width;
+	int height;
+	glfwGetWindowSize(window, &width, &height);
+
+	auto projection = glm::perspective(30.0f, width / (float)height, 0.1f, 20.0f);
+	auto view = glm::translate(glm::mat4(1), glm::vec3(0.0f, 0.0f, -2.0f));
+	auto view_projection = projection * view;
+
+	auto view_projection_location = glGetUniformLocation(shader->programHandle, "proj");
+
+	glUniformMatrix4fv(view_projection_location, 1, GL_FALSE, glm::value_ptr(view_projection));
+
+
 }
 
-void update(float time_delta) {
-	cube->update();
+void update(float time_delta, bool pressed) {
+	cube->update(time_delta, pressed);
 }
 
 void draw() {
+	auto& model = cube->modelMatrix;
+
+	auto model_location = glGetUniformLocation(shader->programHandle, "model");
+
+	glUniformMatrix4fv(model_location, 1, GL_FALSE, glm::value_ptr(model));
+
 	shader->useShader();
 	cube->draw();
 }

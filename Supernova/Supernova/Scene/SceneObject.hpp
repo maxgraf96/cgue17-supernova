@@ -11,7 +11,7 @@ namespace supernova {
 			virtual ~SceneObject();
 
 			virtual void draw() = 0;
-			virtual void update() = 0;
+			virtual void update(float time_delta, bool pressed) = 0;
 
 			glm::mat4 modelMatrix;
 		};
