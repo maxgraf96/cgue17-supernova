@@ -83,7 +83,7 @@ const float Cube::positions[CUBE_VERTEX_COUNT * 3] = {
 	// Back
 	-0.5f, -0.5f, -0.5f,
 	-0.5f, 0.5f, -0.5f,
-	0.5f, -0.5f, -0.5f,
+	0.5f, 0.5f, -0.5f,
 	0.5f, -0.5f, -0.5f,
 
 	// Front
