@@ -20,6 +20,14 @@ void cleanup();
 std::unique_ptr<Shader> shader;
 std::unique_ptr<Cube> cube;
 
+//camera
+glm::vec3 cameraPos;
+glm::vec3 cameraFront;
+glm::vec3 cameraUp;
+glm::mat4 view;
+
+glm::mat4 projection;
+
 int width = 1280;
 int height = 720;
 
@@ -70,6 +78,13 @@ void main(int argc, char** argv) {
 
 	init(window);
 
+	glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+
+	//used to get the first position of the mouse!
+	bool firstMouse = true;
+	GLfloat lastX = width / 2, lastY = height / 2;
+	GLfloat pitch = 0.0f, yaw = 90.0f;
+
 	bool running = true;
 	auto time = glfwGetTime();
 
@@ -85,7 +100,7 @@ void main(int argc, char** argv) {
 
 		std::cout << "frametime:" << time_delta * 1000 << "ms =~" << 1.0 / time_delta << "fps" << std::endl;
 
-		//react to user input
+		//react to user input (maybe extract key and mouse input to seperate methods!)
 		glfwPollEvents();
 
 		if (glfwGetKey(window, GLFW_KEY_ESCAPE)) {
@@ -100,6 +115,55 @@ void main(int argc, char** argv) {
 		else if (glfwGetKey(window, GLFW_KEY_DOWN)) {
 			pressed = -1;
 		}
+
+		//update camera
+		float cameraSpeed = 5.0f * time_delta;
+		if (glfwGetKey(window, GLFW_KEY_W)) {
+			cameraPos += cameraSpeed * cameraFront;
+		}
+		if (glfwGetKey(window, GLFW_KEY_S)) {
+			cameraPos -= cameraSpeed * cameraFront;
+		}
+		if (glfwGetKey(window, GLFW_KEY_A)) {
+			cameraPos += cameraSpeed * glm::normalize(glm::cross(cameraFront, cameraUp));
+		}
+		if (glfwGetKey(window, GLFW_KEY_D)) {
+			cameraPos -= cameraSpeed * glm::normalize(glm::cross(cameraFront, cameraUp));
+		}
+
+
+		double xpos, ypos;
+		glfwGetCursorPos(window, &xpos, &ypos);
+		if (firstMouse) {
+			lastX = xpos;
+			lastY = ypos;
+			firstMouse = false;
+		}
+
+		GLfloat xoffset = xpos - lastX;
+		GLfloat yoffset = lastY - ypos;
+		lastX = xpos;
+		lastY = ypos;
+
+		//change as you want! Maybe make changable in settings
+		GLfloat sensitivity = 0.2f;
+		xoffset *= sensitivity;
+		yoffset *= sensitivity;
+
+		yaw -= xoffset;
+		pitch -= yoffset;
+
+		glm::vec3 front;
+		front.x = cos(glm::radians(yaw)) * cos(glm::radians(pitch));
+		front.y = sin(glm::radians(pitch));
+		front.z = sin(glm::radians(yaw)) * cos(glm::radians(pitch));
+		cameraFront = glm::normalize(front);
+
+		//generate view projection matrix
+		view = glm::lookAt(cameraPos, cameraPos + cameraFront, cameraUp);
+		auto view_projection = projection * view;
+		auto view_projection_location = glGetUniformLocation(shader->programHandle, "proj");
+		glUniformMatrix4fv(view_projection_location, 1, GL_FALSE, glm::value_ptr(view_projection));
 
 		//update game components
 		update(time_delta, pressed);
@@ -156,16 +220,13 @@ void init(GLFWwindow* window) {
 	int height;
 	glfwGetWindowSize(window, &width, &height);
 
-	auto projection = glm::perspective(30.0f, width / (float)height, 0.1f, 20.0f);
-	auto view = glm::translate(glm::mat4(1), glm::vec3(0.0f, 0.2f, -2.0f));
-	view = glm::rotate(view, glm::radians(-25.0f), glm::vec3(1, 0, 0));
-	auto view_projection = projection * view;
+	projection = glm::perspective(30.0f, width / (float)height, 0.1f, 20.0f);
 
-	auto view_projection_location = glGetUniformLocation(shader->programHandle, "proj");
-
-	glUniformMatrix4fv(view_projection_location, 1, GL_FALSE, glm::value_ptr(view_projection));
-
-
+	//camera
+	cameraPos = glm::vec3(0.0f, 0.0f, -2.0f);
+	cameraFront = glm::vec3(0.0f, 0.0f, 1.0f);
+	cameraUp = glm::vec3(0.0f, 1.0f, 0.0f);
+	view = glm::lookAt(cameraPos, cameraPos + cameraFront, cameraUp);
 }
 
 void update(float time_delta, int pressed) {
