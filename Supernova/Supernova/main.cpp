@@ -30,6 +30,7 @@ glm::mat4 projection;
 
 int width = 1280;
 int height = 720;
+bool fullscreen = false;
 
 void main(int argc, char** argv) {
 
@@ -50,13 +51,28 @@ void main(int argc, char** argv) {
 			system("PAUSE");
 			exit(EXIT_FAILURE);
 		}
+		if (argc >= 4) {
+			if ((std::stringstream(argv[3]) >> fullscreen).fail()) {
+				std::cerr << "ERROR: Could not parse third command-line-argument as boolean." << std::endl;
+				system("PAUSE");
+				exit(EXIT_FAILURE);
+			}
+		}
 	}
 
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
 	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
-	auto window = glfwCreateWindow(width, height, "Test Window", nullptr, nullptr);
+	GLFWmonitor* monitor = nullptr;
+	if (fullscreen) {
+		monitor = glfwGetPrimaryMonitor();
+
+		int refreshRate = 60;
+		glfwWindowHint(GLFW_REFRESH_RATE, refreshRate);
+	}
+
+	auto window = glfwCreateWindow(width, height, "Test Window", monitor, nullptr);
 
 	if (!window) {
 		std::cerr << "ERROR: Could not open window" << std::endl;
