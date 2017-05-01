@@ -22,8 +22,30 @@ MovingCube::~MovingCube(){
 }
 
 void MovingCube::update(float time_delta, int pressed) {
-	/* TODO: Translate instead of rotate */
-	modelMatrix = glm::translate(modelMatrix, glm::vec3(0, 0, 0.01f));
+	bool right = modelMatrix[3].x < 10;
+	bool forward = modelMatrix[3].z < 10;
+	bool back = modelMatrix[3].x < -10;
+	if (right) {
+		if (!forward) {
+			if (back) {
+				modelMatrix = glm::translate(modelMatrix, glm::vec3(0.00f, 0.0f, -0.05f));
+			}
+			else {
+				modelMatrix = glm::translate(modelMatrix, glm::vec3(-0.05f, 0.0f, 0.0f));
+			}
+		}
+		else {
+			modelMatrix = glm::translate(modelMatrix, glm::vec3(0.05f, 0, 0));
+		}
+	}
+	if (!right) {
+		if (!forward) {
+			modelMatrix = glm::translate(modelMatrix, glm::vec3(-0.05f, 0.0f, 0.0f));
+		}
+		else {
+			modelMatrix = glm::translate(modelMatrix, glm::vec3(0.0f, 0.0f, 0.05f));
+		}
+	}
 }
 
 void MovingCube::draw() {
