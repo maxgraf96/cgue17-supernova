@@ -168,6 +168,7 @@
     <ClCompile Include="Scene\MovingCube.cpp" />
     <ClCompile Include="Scene\SceneObject.cpp" />
     <ClCompile Include="Scene\Skybox.cpp" />
+    <ClCompile Include="Scene\Spaceship.cpp" />
     <ClCompile Include="Scene\TextQuad.cpp" />
     <ClCompile Include="Shader.cpp" />
   </ItemGroup>
@@ -180,6 +181,7 @@
     <ClInclude Include="Scene\MovingCube.hpp" />
     <ClInclude Include="Scene\SceneObject.hpp" />
     <ClInclude Include="Scene\Skybox.hpp" />
+    <ClInclude Include="Scene\Spaceship.hpp" />
     <ClInclude Include="Scene\TextQuad.hpp" />
     <ClInclude Include="Shader.hpp" />
   </ItemGroup>
