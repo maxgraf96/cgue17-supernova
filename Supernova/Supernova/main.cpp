@@ -10,8 +10,8 @@
 #include "glm/gtx/rotate_vector.hpp"
 #include <map>
 
-/* Remove SOIL asap!!!! - Replace with our texture logic */
-#include<SOIL\SOIL.h>
+/* FreeImage is used to load images */
+#include <FreeImage.h>
 
 #include "Shader.hpp"
 #include "Scene/Cube.hpp"
@@ -33,7 +33,7 @@ void update(float time_delta, int pressed);
 void draw();
 void cleanup();
 void initTextures();
-GLuint loadTexture(GLchar* path);
+GLuint loadTexture(const GLchar* path);
 GLuint loadCubemap(std::vector<const GLchar*> faces);
 void prepareFreeTypeCharacters();
 void renderText(std::string text, GLfloat x, GLfloat y, GLfloat scale, glm::vec3 color, std::map<GLchar, Character> chars);
@@ -420,7 +420,12 @@ void draw() {
 	hudShader->useShader();
 	glUniformMatrix4fv(glGetUniformLocation(hudShader->programHandle, "projection"), 1, GL_FALSE, glm::value_ptr(hudProjectionMat));
 	/* If user is outside boundary(40x40x70) display warning */
-	if (cameraPos.x < -20 || cameraPos.x > 20 || cameraPos.y < -20 || cameraPos.y > 20 || cameraPos.z < -10 || cameraPos.z > 60) {
+	if (camera.get()->getPosition().x < -20 
+		|| camera.get()->getPosition().x > 20 
+		|| camera.get()->getPosition().y < -20
+		|| camera.get()->getPosition().y > 20
+		|| camera.get()->getPosition().z < -10
+		|| camera.get()->getPosition().z > 60) {
 		renderText("Danger Zone.", 550.0f, 380.0f, 1.0f, glm::vec3(1.0f, 1.0f, 1.0f), characters);
 	}
 }
@@ -448,18 +453,49 @@ void cleanup() {
 /* Used to bind skybox texture to skybox object */
 GLuint loadCubemap(std::vector<const GLchar*> faces)
 {
-	GLuint textureID;
-	glGenTextures(1, &textureID);
+	GLuint textureId;
+	glGenTextures(1, &textureId);
 
 	int width, height;
-	unsigned char* image;
+	char* image;
 
-	glBindTexture(GL_TEXTURE_CUBE_MAP, textureID);
+	glBindTexture(GL_TEXTURE_CUBE_MAP, textureId);
 	for (GLuint i = 0; i < faces.size(); i++) {
 		/* Load texture */
-		image = SOIL_load_image(faces[i], &width, &height, 0, SOIL_LOAD_RGB);
-		glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, image);
-		SOIL_free_image_data(image);
+		FIBITMAP* bitmap = FreeImage_Load(FreeImage_GetFileType(faces[i], 0), faces[i]);
+		int bitsPerPixel = FreeImage_GetBPP(bitmap);
+
+		// Convert to 32bit image iff it not already is
+		FIBITMAP* bitmap32;
+		if (bitsPerPixel == 32) {
+			bitmap32 = bitmap;
+		}
+		else {
+			bitmap32 = FreeImage_ConvertTo32Bits(bitmap);
+		}
+
+		int width = FreeImage_GetWidth(bitmap32);
+		int height = FreeImage_GetHeight(bitmap32);
+
+		// Link texture to id
+		glGenTextures(1, &textureId);
+		glBindTexture(GL_TEXTURE_2D, textureId);
+		glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i,
+			0,
+			GL_RGBA,
+			width,
+			height,
+			0,
+			GL_BGRA,
+			GL_UNSIGNED_BYTE,
+			(void*)FreeImage_GetBits(bitmap32));
+		// Unbind and unload
+		glBindTexture(GL_TEXTURE_2D, 0);
+		FreeImage_Unload(bitmap32);
+		if (bitsPerPixel != 32)
+		{
+			FreeImage_Unload(bitmap);
+		}
 	}
 	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
@@ -467,20 +503,40 @@ GLuint loadCubemap(std::vector<const GLchar*> faces)
 	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
 
-	return textureID;
+	return textureId;
 }
 
-/* Function for loading a texture from a file, uses the SOIL library -> REPLACE WITH OUR TEXTURE LOADING LOGIC */
-GLuint loadTexture(GLchar* path) {
-	GLuint textureID;
-	glGenTextures(1, &textureID);
-	int width, height;
+/* Function for loading an image from a file, uses the FreeImage library */
+GLuint loadTexture(const GLchar* path) {
+	GLuint textureId;
 
-	unsigned char* image = SOIL_load_image(path, &width, &height, 0, SOIL_LOAD_RGB);
+	FIBITMAP* bitmap = FreeImage_Load(FreeImage_GetFileType(path, 0), path);
+	int bitsPerPixel = FreeImage_GetBPP(bitmap);
+
+	// Convert to 32bit image iff it not already is
+	FIBITMAP* bitmap32;
+	if (bitsPerPixel == 32) {
+		bitmap32 = bitmap;
+	}
+	else {
+		bitmap32 = FreeImage_ConvertTo32Bits(bitmap);
+	}
+
+	int width = FreeImage_GetWidth(bitmap32);
+	int height = FreeImage_GetHeight(bitmap32);
 
 	// Link texture to id
-	glBindTexture(GL_TEXTURE_2D, textureID);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, image);
+	glGenTextures(1, &textureId);
+	glBindTexture(GL_TEXTURE_2D, textureId);
+	glTexImage2D(GL_TEXTURE_2D,
+		0,
+		GL_RGBA, 
+		width,
+		height, 
+		0,
+		GL_BGRA, 
+		GL_UNSIGNED_BYTE, 
+		(void*)FreeImage_GetBits(bitmap32));
 	glGenerateMipmap(GL_TEXTURE_2D);
 
 	// Params
@@ -488,13 +544,19 @@ GLuint loadTexture(GLchar* path) {
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	
+	// Unbind and unload
 	glBindTexture(GL_TEXTURE_2D, 0);
-	SOIL_free_image_data(image);
-
-	return textureID;
+	FreeImage_Unload(bitmap32);
+	if (bitsPerPixel != 32)
+	{
+		FreeImage_Unload(bitmap);
+	}
+	return textureId;
 }
 
 void initTextures() {
+	FreeImage_Initialise(true);
 	// Cubemap (Skybox)
 	std::vector<const GLchar*> faces;
 	faces.push_back("Textures/Skybox/purplenebula_rt.png");
