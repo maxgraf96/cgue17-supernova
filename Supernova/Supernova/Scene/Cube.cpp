@@ -12,8 +12,8 @@ Cube::Cube()
 
 }
 
-Cube::Cube(glm::mat4& matrix, Shader* _shader)
-	: SceneObject(matrix), shader(_shader) {
+Cube::Cube(glm::mat4& matrix, Shader* _shader, Material* _material)
+	: SceneObject(matrix), shader(_shader), material(_material) {
 	//Load data to buffer
 	glGenBuffers(1, &positionBuffer);
 	glBindBuffer(GL_ARRAY_BUFFER, positionBuffer);
@@ -76,6 +76,18 @@ void Cube::update(float time_delta, int pressed) {
 
 void Cube::draw() {
 	glBindVertexArray(vao);
+
+	/* Pass material values to shader */
+	GLint matAmbientLoc = glGetUniformLocation(shader->programHandle, "material.ambient");
+	GLint matDiffuseLoc = glGetUniformLocation(shader->programHandle, "material.diffuse");
+	GLint matSpecularLoc = glGetUniformLocation(shader->programHandle, "material.specular");
+	GLint matShininessLoc = glGetUniformLocation(shader->programHandle, "material.shininess");
+	GLint lightColorLoc = glGetUniformLocation(shader->programHandle, "lightColor");
+	glUniform3f(matAmbientLoc, material->getAmbient().r, material->getAmbient().g, material->getAmbient().b);
+	glUniform3f(matDiffuseLoc, material->getAmbient().r, material->getAmbient().g, material->getAmbient().b);
+	glUniform3f(matSpecularLoc, material->getSpecular().r, material->getSpecular().g, material->getSpecular().b);
+	glUniform1f(matShininessLoc, material->getShininess());
+	glUniform3f(lightColorLoc, 1.0f, 1.0f, 1.0f);// Normally light is white
 
 	glDrawElements(GL_TRIANGLES, CUBE_INDEX_COUNT, GL_UNSIGNED_INT, 0);
 

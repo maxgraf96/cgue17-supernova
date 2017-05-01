@@ -27,6 +27,24 @@
     <ClCompile Include="Scene\Cube.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="Scene\Skybox.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Scene\LightCube.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Scene\TextQuad.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Scene\MovingCube.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Materials\Metal.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Scene\Camera.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Shader.hpp">
@@ -38,9 +56,56 @@
     <ClInclude Include="Scene\Cube.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="Scene\Skybox.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Scene\LightCube.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Scene\TextQuad.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Materials\Material.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Lights\Light.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Scene\MovingCube.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Scene\Camera.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="Shader\basic.vert" />
     <None Include="Shader\basic.frag" />
+    <None Include="Shader\skybox.vert" />
+    <None Include="Shader\skybox.frag" />
+    <None Include="Shader\lightCube.vert" />
+    <None Include="Shader\lightCube.frag" />
+    <None Include="Shader\hud.vert" />
+    <None Include="Shader\hud.frag" />
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="Textures\Skybox\purplenebula_bk.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="Textures\Skybox\purplenebula_dn.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="Textures\Skybox\purplenebula_ft.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="Textures\Skybox\purplenebula_lf.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="Textures\Skybox\purplenebula_rt.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="Textures\Skybox\purplenebula_up.png">
+      <Filter>Resource Files</Filter>
+    </Image>
   </ItemGroup>
 </Project>

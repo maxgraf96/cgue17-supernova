@@ -3,6 +3,7 @@
 #include <glew.h>
 #include "SceneObject.hpp"
 #include "../Shader.hpp"
+#include "../Materials/Material.hpp"
 
 #ifdef SCENE_OBJECT
 
@@ -15,7 +16,7 @@ namespace supernova {
 		{
 		public:
 			Cube();
-			Cube(glm::mat4& matrix, Shader* shader);
+			Cube(glm::mat4& matrix, Shader* shader, Material* material);
 			virtual ~Cube();
 
 			virtual void update(float time_delta, int pressed);
@@ -25,6 +26,7 @@ namespace supernova {
 			GLuint vao;
 			GLuint positionBuffer, normalsBuffer, indexBuffer;
 			Shader* shader;
+			Material* material;
 
 			static const float positions[CUBE_VERTEX_COUNT * 3];
 			static const unsigned int indices[CUBE_INDEX_COUNT];
