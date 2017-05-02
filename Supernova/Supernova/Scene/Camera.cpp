@@ -23,12 +23,12 @@ void Camera::update(bool forward, bool backwards, bool rollLeft, bool rollRight,
 	if (forward) {
 		position += (cameraSpeed * time_delta) * front;
 		if (totalPitch < 0.0f) {
-			front = glm::rotate(front, glm::radians(totalPitch / 90), right);
-			up = glm::rotate(up, glm::radians(totalPitch / 90), right);
+			front = glm::rotate(front, glm::radians(totalPitch * 2 * time_delta), right);
+			up = glm::rotate(up, glm::radians(totalPitch * 2 * time_delta), right);
 		}
 		if (totalPitch > 0.0f) {
-			front = glm::rotate(front, glm::radians(totalPitch / 90), right);
-			up = glm::rotate(up, glm::radians(totalPitch / 90), right);
+			front = glm::rotate(front, glm::radians(totalPitch * 2 * time_delta), right);
+			up = glm::rotate(up, glm::radians(totalPitch * 2 * time_delta), right);
 		}
 	}
 	if (backwards) {
