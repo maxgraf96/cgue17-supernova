@@ -14,7 +14,7 @@ namespace supernova {
 			virtual void update(bool forward, bool backwards, bool rollLeft, bool rollRight, float xoffset, float yoffset,
 				float time_delta);
 			glm::mat4 viewMatrix;
-			glm::vec3 getPosition(){
+			glm::vec3& getPosition(){
 				return position;
 			}
 

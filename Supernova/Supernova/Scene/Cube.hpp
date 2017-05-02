@@ -21,6 +21,12 @@ namespace supernova {
 
 			virtual void update(float time_delta, int pressed);
 			virtual void draw();
+			Material* getMaterial() {
+				return this->material;
+			}
+			void setMaterial(Material* material) {
+				this->material = material;
+			}
 
 		private:
 			GLuint vao;

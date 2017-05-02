@@ -5,6 +5,7 @@
 #include "../Shader.hpp"
 #include "../Materials/Material.hpp"
 #include "../Materials/Metal.cpp"
+#include "Camera.hpp"
 
 #ifdef SCENE_OBJECT
 
@@ -17,11 +18,14 @@ namespace supernova {
 		{
 		public:
 			MovingCube();
-			MovingCube(glm::mat4& matrix, Shader* shader, Material* material, float zOffset);
+			MovingCube(glm::mat4& matrix, Shader* shader, Camera* _camera, Material* material, float zOffset);
 			virtual ~MovingCube();
 
 			virtual void update(float time_delta, int pressed);
 			virtual void draw();
+		private:
+			float zOffset;
+			Camera* camera;
 		};
 	}
 }

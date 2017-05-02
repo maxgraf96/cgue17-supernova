@@ -1,4 +1,5 @@
 #include <iostream>
+#include <glm\gtx\rotate_vector.hpp>
 #include "Camera.hpp"
 
 using namespace supernova;
@@ -21,6 +22,14 @@ void Camera::update(bool forward, bool backwards, bool rollLeft, bool rollRight,
 	float yaw = 0.0f;
 	if (forward) {
 		position += (cameraSpeed * time_delta) * front;
+		if (totalPitch < 0.0f) {
+			front = glm::rotate(front, glm::radians(totalPitch / 90), right);
+			up = glm::rotate(up, glm::radians(totalPitch / 90), right);
+		}
+		if (totalPitch > 0.0f) {
+			front = glm::rotate(front, glm::radians(totalPitch / 90), right);
+			up = glm::rotate(up, glm::radians(totalPitch / 90), right);
+		}
 	}
 	if (backwards) {
 		position -= (cameraSpeed * time_delta) * front;

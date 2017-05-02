@@ -48,6 +48,8 @@ std::unique_ptr<Shader> hudShader;
 // Game objects
 std::unique_ptr<Skybox> skybox;
 std::unique_ptr<MovingCube> startCube;
+std::unique_ptr<MovingCube> midCube;
+std::unique_ptr<MovingCube> finishCube;
 std::unique_ptr<LightCube> lightCube;
 std::unique_ptr<TextQuad> textQuad;
 
@@ -282,6 +284,14 @@ void init(GLFWwindow* window) {
 	glClearColor(0.35f, 0.36f, 0.43f, 0.3f);
 	glViewport(0, 0, width, height);
 
+	// camera
+	cameraPos = glm::vec3(0.0f, 0.0f, -5.0f);
+	cameraFront = glm::vec3(0.0f, 0.0f, 1.0f);
+	cameraUp = glm::vec3(0.0f, 1.0f, 0.0f);
+
+	camera = std::make_unique<Camera>(cameraPos, cameraFront, cameraUp, glm::cross(cameraFront, cameraUp));
+	view = camera->viewMatrix;
+
 	/* Step 1: Create shaders */
 	shader = std::make_unique<Shader>("Shader/basic.vert", "Shader/basic.frag");
 	skyboxShader = std::make_unique<Shader>("Shader/skybox.vert", "Shader/skybox.frag");
@@ -291,7 +301,9 @@ void init(GLFWwindow* window) {
 	/* Step 2: Create scene objects and assign shaders */
 	skybox = std::make_unique<Skybox>(glm::mat4(1.0f), skyboxShader.get(), cubeMapTexture);
 	lightCube = std::make_unique<LightCube>(glm::mat4(1.0f), lightCubeShader.get());
-	startCube = std::make_unique<MovingCube>(glm::mat4(1.0f), shader.get(), new Metal(vec3(0.4f, 0.2f, 0.9f)), 5.0f);
+	startCube = std::make_unique<MovingCube>(glm::mat4(1.0f), shader.get(), camera.get(), new Metal(vec3(0.905f, 0.298f, 0.235f)), 5.0f);
+	midCube = std::make_unique<MovingCube>(glm::mat4(1.0f), shader.get(), camera.get(), new Metal(vec3(0.905f, 0.298f, 0.235f)), 15.0f);
+	finishCube = std::make_unique<MovingCube>(glm::mat4(1.0f), shader.get(), camera.get(), new Metal(vec3(0.905f, 0.298f, 0.235f)), 25.0f);
 	textQuad = std::make_unique<TextQuad>(glm::mat4(1.0f), hudShader.get());
 
 	/* Step 3: Use those shaders */
@@ -299,7 +311,6 @@ void init(GLFWwindow* window) {
 	skyboxShader->useShader();
 	lightCubeShader->useShader();
 	hudShader->useShader();
-	
 
 	int width;
 	int height;
@@ -308,20 +319,14 @@ void init(GLFWwindow* window) {
 	/* glm::perspective takes (fov, aspect, nearPlane, farPlane) */
 	projection = glm::perspective(30.0f, width / (float)height, 0.1f, 50.0f);
 
-	// camera
-
-	cameraPos = glm::vec3(0.0f, 0.0f, -5.0f);
-	cameraFront = glm::vec3(0.0f, 0.0f, 1.0f);
-	cameraUp = glm::vec3(0.0f, 1.0f, 0.0f);
-
-	camera = std::make_unique<Camera>(cameraPos, cameraFront, cameraUp, glm::cross(cameraFront, cameraUp));
-	view = camera->viewMatrix;
-}
+	}
 
 void update(float time_delta, int pressed) {
 	skybox->update(time_delta, pressed);
 	lightCube->update(time_delta, pressed);
 	startCube->update(time_delta, pressed);
+	midCube->update(time_delta, pressed);
+	finishCube->update(time_delta, pressed);
 	textQuad->update(time_delta, pressed);
 }
 
@@ -362,7 +367,7 @@ void draw() {
 	glUniform3f(lightDiffuseLoc, 0.5f, 0.5f, 0.5f);
 	glUniform3f(lightSpecularLoc, 1.0f, 1.0f, 1.0f);
 
-	/* Moving Cube */
+	/* Start Cube */
 	view_projection_location_cube = glGetUniformLocation(shader->programHandle, "proj");
 	glUniformMatrix4fv(view_projection_location_cube, 1, GL_FALSE, glm::value_ptr(view_projection));
 
@@ -384,6 +389,18 @@ void draw() {
 	glUniform3f(lightDiffuseLoc, 0.5f, 0.5f, 0.5f);
 	glUniform3f(lightSpecularLoc, 1.0f, 1.0f, 1.0f);
 	startCube->draw();
+
+	// Mid Cube
+	auto& model_mid_cube = midCube->modelMatrix;
+	auto model_location_mid_cube = glGetUniformLocation(shader->programHandle, "model");
+	glUniformMatrix4fv(model_location_moving_cube, 1, GL_FALSE, glm::value_ptr(model_mid_cube));
+	midCube->draw();
+
+	// Finish Cube
+	auto& model_finish_cube = finishCube->modelMatrix;
+	auto model_location_finish_cube = glGetUniformLocation(shader->programHandle, "model");
+	glUniformMatrix4fv(model_location_moving_cube, 1, GL_FALSE, glm::value_ptr(model_finish_cube));
+	finishCube->draw();
 
 	/* Skybox - ALWAYS DRAW LAST!!!!!!!!!!!!!!!!!!!!!!!!!!!!!11elf
 	* Only 2d objects are allowed to be drawn after skybox
@@ -417,7 +434,10 @@ void draw() {
 		|| camera.get()->getPosition().y > 20
 		|| camera.get()->getPosition().z < -10
 		|| camera.get()->getPosition().z > 60) {
-		renderText("Danger Zone.", 550.0f, 380.0f, 1.0f, glm::vec3(1.0f, 1.0f, 1.0f), characters);
+			renderText("Danger Zone.", 550.0f, 380.0f, 1.0f, glm::vec3(1.0f, 1.0f, 1.0f), characters);
+	}
+	if (camera.get()->getPosition().z > 25) {
+		renderText("You win!", 550.0f, 380.0f, 1.0f, glm::vec3(1.0f, 1.0f, 1.0f), characters);
 	}
 }
 
@@ -428,6 +448,8 @@ void cleanup() {
 	lightCubeShader.reset(nullptr);
 	/* Moving Cube */
 	startCube.reset(nullptr);
+	midCube.reset(nullptr);
+	finishCube.reset(nullptr);
 	/* Skybox */
 	skybox.reset(nullptr);
 	skyboxShader.reset(nullptr);
