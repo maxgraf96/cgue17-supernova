@@ -17,7 +17,7 @@ namespace supernova {
 		{
 		public:
 			MovingCube();
-			MovingCube(glm::mat4& matrix, Shader* shader, Material* material);
+			MovingCube(glm::mat4& matrix, Shader* shader, Material* material, float zOffset);
 			virtual ~MovingCube();
 
 			virtual void update(float time_delta, int pressed);

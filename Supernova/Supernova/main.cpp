@@ -46,9 +46,8 @@ std::unique_ptr<Shader> lightCubeShader;
 std::unique_ptr<Shader> hudShader;
 
 // Game objects
-std::unique_ptr<Cube> cube;
 std::unique_ptr<Skybox> skybox;
-std::unique_ptr<MovingCube> movingCube;
+std::unique_ptr<MovingCube> startCube;
 std::unique_ptr<LightCube> lightCube;
 std::unique_ptr<TextQuad> textQuad;
 
@@ -290,10 +289,9 @@ void init(GLFWwindow* window) {
 	hudShader = std::make_unique<Shader>("Shader/hud.vert", "Shader/hud.frag");
 
 	/* Step 2: Create scene objects and assign shaders */
-	cube = std::make_unique<Cube>(glm::mat4(1.0f), shader.get(), new Metal(vec3(0.8f, 0.8f, 0.3f)));
 	skybox = std::make_unique<Skybox>(glm::mat4(1.0f), skyboxShader.get(), cubeMapTexture);
 	lightCube = std::make_unique<LightCube>(glm::mat4(1.0f), lightCubeShader.get());
-	movingCube = std::make_unique<MovingCube>(glm::mat4(1.0f), shader.get(), new Metal(vec3(0.4f, 0.2f, 0.9f)));
+	startCube = std::make_unique<MovingCube>(glm::mat4(1.0f), shader.get(), new Metal(vec3(0.4f, 0.2f, 0.9f)), 5.0f);
 	textQuad = std::make_unique<TextQuad>(glm::mat4(1.0f), hudShader.get());
 
 	/* Step 3: Use those shaders */
@@ -321,10 +319,9 @@ void init(GLFWwindow* window) {
 }
 
 void update(float time_delta, int pressed) {
-	cube->update(time_delta, pressed);
 	skybox->update(time_delta, pressed);
 	lightCube->update(time_delta, pressed);
-	movingCube->update(time_delta, pressed);
+	startCube->update(time_delta, pressed);
 	textQuad->update(time_delta, pressed);
 }
 
@@ -349,10 +346,6 @@ void draw() {
 	auto view_projection_location_cube = glGetUniformLocation(shader->programHandle, "proj");
 	glUniformMatrix4fv(view_projection_location_cube, 1, GL_FALSE, glm::value_ptr(view_projection));
 
-	auto& model = cube->modelMatrix;
-	auto model_location = glGetUniformLocation(shader->programHandle, "model");
-	glUniformMatrix4fv(model_location, 1, GL_FALSE, glm::value_ptr(model));
-
 	// view(camera) info
 	GLint cameraPosLoc = glGetUniformLocation(shader->programHandle, "cameraPos");
 	glUniform3f(cameraPosLoc, cameraPos.x, cameraPos.y, cameraPos.z);
@@ -368,14 +361,12 @@ void draw() {
 	glUniform3f(lightAmbientLoc, 0.2f, 0.2f, 0.2f);
 	glUniform3f(lightDiffuseLoc, 0.5f, 0.5f, 0.5f);
 	glUniform3f(lightSpecularLoc, 1.0f, 1.0f, 1.0f);
-	
-	cube->draw();
 
 	/* Moving Cube */
 	view_projection_location_cube = glGetUniformLocation(shader->programHandle, "proj");
 	glUniformMatrix4fv(view_projection_location_cube, 1, GL_FALSE, glm::value_ptr(view_projection));
 
-	auto& model_moving_cube = movingCube->modelMatrix;
+	auto& model_moving_cube = startCube->modelMatrix;
 	auto model_location_moving_cube = glGetUniformLocation(shader->programHandle, "model");
 	glUniformMatrix4fv(model_location_moving_cube, 1, GL_FALSE, glm::value_ptr(model_moving_cube));
 
@@ -392,7 +383,7 @@ void draw() {
 	glUniform3f(lightAmbientLoc, 0.2f, 0.2f, 0.2f);
 	glUniform3f(lightDiffuseLoc, 0.5f, 0.5f, 0.5f);
 	glUniform3f(lightSpecularLoc, 1.0f, 1.0f, 1.0f);
-	movingCube->draw();
+	startCube->draw();
 
 	/* Skybox - ALWAYS DRAW LAST!!!!!!!!!!!!!!!!!!!!!!!!!!!!!11elf
 	* Only 2d objects are allowed to be drawn after skybox
@@ -431,14 +422,12 @@ void draw() {
 }
 
 void cleanup() {
-	/* Cube */
-	cube.reset(nullptr);
 	shader.reset(nullptr);
 	/* Light Cube */
 	lightCube.reset(nullptr);
 	lightCubeShader.reset(nullptr);
 	/* Moving Cube */
-	movingCube.reset(nullptr);
+	startCube.reset(nullptr);
 	/* Skybox */
 	skybox.reset(nullptr);
 	skyboxShader.reset(nullptr);

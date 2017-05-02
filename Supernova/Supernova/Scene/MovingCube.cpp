@@ -13,8 +13,9 @@ MovingCube::MovingCube()
 
 }
 
-MovingCube::MovingCube(glm::mat4& matrix, Shader* _shader, Material* _material)
+MovingCube::MovingCube(glm::mat4& matrix, Shader* _shader, Material* _material, float zOffset)
 	: Cube(matrix, _shader, _material) {
+	modelMatrix = glm::translate(modelMatrix, glm::vec3(0.0f, 0.0f, zOffset));
 }
 
 MovingCube::~MovingCube(){
@@ -22,29 +23,25 @@ MovingCube::~MovingCube(){
 }
 
 void MovingCube::update(float time_delta, int pressed) {
-	bool right = modelMatrix[3].x < 10;
-	bool forward = modelMatrix[3].z < 10;
-	bool back = modelMatrix[3].x < -10;
-	if (right) {
-		if (!forward) {
-			if (back) {
-				modelMatrix = glm::translate(modelMatrix, glm::vec3(0.00f, 0.0f, -0.05f));
-			}
-			else {
-				modelMatrix = glm::translate(modelMatrix, glm::vec3(-0.05f, 0.0f, 0.0f));
-			}
-		}
-		else {
-			modelMatrix = glm::translate(modelMatrix, glm::vec3(0.05f, 0, 0));
-		}
+	float x = modelMatrix[3].x;
+	float y = modelMatrix[3].y;
+	float speed = 0.15f;
+
+	if (x <= 10 && y >= 0) {
+		// Move right
+		modelMatrix = glm::translate(modelMatrix, glm::vec3(speed, 0.0f, 0.0f));
 	}
-	if (!right) {
-		if (!forward) {
-			modelMatrix = glm::translate(modelMatrix, glm::vec3(-0.05f, 0.0f, 0.0f));
-		}
-		else {
-			modelMatrix = glm::translate(modelMatrix, glm::vec3(0.0f, 0.0f, 0.05f));
-		}
+	if (x >= 10 && y < 10) {
+		// Move up
+		modelMatrix = glm::translate(modelMatrix, glm::vec3(0.0f, -speed, 0.0f));
+	}
+	if (y <= -10 && x > -10) {
+		// Move left
+		modelMatrix = glm::translate(modelMatrix, glm::vec3(-speed, 0.0f, 0.0f));
+	}
+	if (x <= -10 && y < 0) {
+		// Move down
+		modelMatrix = glm::translate(modelMatrix, glm::vec3(0.0f, speed, 0.0f));
 	}
 }
 
