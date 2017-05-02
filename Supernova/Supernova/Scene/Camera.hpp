@@ -22,6 +22,7 @@ namespace supernova {
 			//Camera Attributes
 			glm::vec3 position, front, up, right;
 			float cameraSpeed, rotateSpeed, sensitivity;
+			float totalPitch, totalYaw;
 		};
 	}
 }

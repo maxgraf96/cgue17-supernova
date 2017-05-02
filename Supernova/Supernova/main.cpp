@@ -20,6 +20,7 @@
 #include "Scene\TextQuad.hpp"
 #include "Scene\MovingCube.hpp"
 #include "Scene\Camera.hpp"
+#include "Scene\Spaceship.hpp"
 
 /* Freetype is used for the HUD -> to draw 2D characters to screen */
 #include <ft2build.h>
@@ -29,7 +30,7 @@ using namespace supernova;
 using namespace supernova::scene;
 
 void init(GLFWwindow* window);
-void update(float time_delta, int pressed);
+void update(float time_delta, int pressed, bool forward, bool backward, bool rollLeft, bool rollRight, GLfloat xoffset, GLfloat yoffset);
 void draw();
 void cleanup();
 void initTextures();
@@ -50,6 +51,7 @@ std::unique_ptr<Skybox> skybox;
 std::unique_ptr<MovingCube> startCube;
 std::unique_ptr<LightCube> lightCube;
 std::unique_ptr<TextQuad> textQuad;
+std::unique_ptr<Spaceship> spaceship;
 
 // Camera
 std::unique_ptr<Camera> camera;
@@ -158,8 +160,8 @@ void main(int argc, char** argv) {
 		time = time_new;
 
 		/* Camera position console output */
-		std::cout << "frametime:" << time_delta * 1000 << "ms =~" << 1.0 / time_delta << "fps" << std::endl;
-		std::cout << "Camera position: " << cameraPos.x << ", " << cameraPos.y << ", " << cameraPos.z << std::endl;
+		//std::cout << "frametime:" << time_delta * 1000 << "ms =~" << 1.0 / time_delta << "fps" << std::endl;
+		//std::cout << "Camera position: " << cameraPos.x << ", " << cameraPos.y << ", " << cameraPos.z << std::endl;
 
 		//react to user input (maybe extract key and mouse input to seperate methods!)
 		glfwPollEvents();
@@ -220,7 +222,7 @@ void main(int argc, char** argv) {
 		view = camera->viewMatrix;
 
 		//update game components
-		update(time_delta, pressed);
+		update(time_delta, pressed, forward, backward, rollLeft, rollRight, xoffset, yoffset);
 
 		//draw game components
 		draw();
@@ -293,6 +295,7 @@ void init(GLFWwindow* window) {
 	lightCube = std::make_unique<LightCube>(glm::mat4(1.0f), lightCubeShader.get());
 	startCube = std::make_unique<MovingCube>(glm::mat4(1.0f), shader.get(), new Metal(vec3(0.4f, 0.2f, 0.9f)), 5.0f);
 	textQuad = std::make_unique<TextQuad>(glm::mat4(1.0f), hudShader.get());
+	spaceship = std::make_unique<Spaceship>(glm::mat4(1.0f), shader.get(), new Metal(vec3(0.827f, 0.827f, 0.827f)));
 
 	/* Step 3: Use those shaders */
 	shader->useShader();
@@ -310,7 +313,7 @@ void init(GLFWwindow* window) {
 
 	// camera
 
-	cameraPos = glm::vec3(0.0f, 0.0f, -2.0f);
+	cameraPos = glm::vec3(0.0f, 0.0f, -5.0f);
 	cameraFront = glm::vec3(0.0f, 0.0f, 1.0f);
 	cameraUp = glm::vec3(0.0f, 1.0f, 0.0f);
 
@@ -318,11 +321,17 @@ void init(GLFWwindow* window) {
 	view = camera->viewMatrix;
 }
 
+<<<<<<< HEAD
 void update(float time_delta, int pressed) {
+=======
+void update(float time_delta, int pressed, bool forward, bool backward, bool rollLeft, bool rollRight, GLfloat xoffset, GLfloat yoffset) {
+	cube->update(time_delta, pressed);
+>>>>>>> a3be4185144a328115268b5da59eac94c1a465aa
 	skybox->update(time_delta, pressed);
 	lightCube->update(time_delta, pressed);
 	startCube->update(time_delta, pressed);
 	textQuad->update(time_delta, pressed);
+	spaceship->update(time_delta, pressed, forward, backward, rollLeft, rollRight, xoffset, yoffset);
 }
 
 void draw() {
@@ -361,6 +370,13 @@ void draw() {
 	glUniform3f(lightAmbientLoc, 0.2f, 0.2f, 0.2f);
 	glUniform3f(lightDiffuseLoc, 0.5f, 0.5f, 0.5f);
 	glUniform3f(lightSpecularLoc, 1.0f, 1.0f, 1.0f);
+
+	/* Spaceship */
+	auto& model_spaceship = spaceship->modelMatrix;
+	auto model_location_spaceship = glGetUniformLocation(shader->programHandle, "model");
+	glUniformMatrix4fv(model_location, 1, GL_FALSE, glm::value_ptr(model_spaceship));
+
+	spaceship->draw();
 
 	/* Moving Cube */
 	view_projection_location_cube = glGetUniformLocation(shader->programHandle, "proj");
@@ -434,7 +450,8 @@ void cleanup() {
 	/* HUD */
 	textQuad.reset(nullptr);
 	hudShader.reset(nullptr);
-
+	/* Spaceship */
+	spaceship.reset(nullptr);
 	/* Camera */
 	camera.reset(nullptr);
 }

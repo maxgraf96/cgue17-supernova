@@ -4,8 +4,9 @@
 using namespace supernova;
 using namespace supernova::scene;
 
-Camera::Camera(glm::vec3 _position, glm::vec3 _front, glm::vec3 _up, glm::vec3 _right) : 
-	position(_position), front(_front), up(_up), right(_right), cameraSpeed(5.0f), rotateSpeed(90.0f), sensitivity(0.2f) {
+Camera::Camera(glm::vec3 _position, glm::vec3 _front, glm::vec3 _up, glm::vec3 _right) :
+	position(_position), front(_front), up(_up), right(_right), cameraSpeed(5.0f), rotateSpeed(90.0f), sensitivity(0.2f),
+	totalPitch(0.0f), totalYaw(0.0f) {
 	viewMatrix = glm::lookAt(position, position + front, up);
 }
 
@@ -24,11 +25,13 @@ void Camera::update(bool forward, bool backwards, bool rollLeft, bool rollRight,
 	if (backwards) {
 		position -= (cameraSpeed * time_delta) * front;
 	}
-	if (rollLeft) {
-		roll = rotateSpeed * time_delta;
-	}
-	if (rollRight) {
-		roll = -(rotateSpeed * time_delta);
+	if (!(rollLeft && rollRight)) {
+		if (rollLeft) {
+			roll = rotateSpeed * time_delta;
+		}
+		if (rollRight) {
+			roll = -(rotateSpeed * time_delta);
+		}
 	}
 
 	xoffset *= sensitivity;
@@ -36,12 +39,24 @@ void Camera::update(bool forward, bool backwards, bool rollLeft, bool rollRight,
 
 	yaw = xoffset;
 	pitch = -yoffset;
+	totalYaw += yaw;
+	totalPitch += pitch;
+	
+	if (totalPitch > 25.0f || totalPitch < -25.0f) {
+		totalPitch -= pitch;
+	}
+	else {
+		front = glm::normalize(front * cos(glm::radians(pitch)) + up * sin(glm::radians(pitch)));
+		up = glm::normalize(glm::cross(right, front));
+	}
 
-	front = glm::normalize(front * cos(glm::radians(pitch)) + up * sin(glm::radians(pitch)));
-	up = glm::normalize(glm::cross(right, front));
-
-	right = glm::normalize(right * cos(glm::radians(yaw)) + front * sin(glm::radians(yaw)));
-	front = glm::normalize(glm::cross(up, right));
+	if (totalYaw > 25.0f || totalYaw < -25.0f) {
+		totalYaw -= yaw;
+	}
+	else {
+		right = glm::normalize(right * cos(glm::radians(yaw)) + front * sin(glm::radians(yaw)));
+		front = glm::normalize(glm::cross(up, right));
+	}
 
 	right = glm::normalize(right * cos(glm::radians(roll)) + up * sin(glm::radians(roll)));
 	up = glm::normalize(glm::cross(right, front));
