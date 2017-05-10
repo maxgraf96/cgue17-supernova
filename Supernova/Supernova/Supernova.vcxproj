@@ -98,7 +98,7 @@
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <IgnoreSpecificDefaultLibraries>LIBCMTD</IgnoreSpecificDefaultLibraries>
-      <AdditionalDependencies>glew32.lib;opengl32.lib;glfw.lib;FreeImage.lib;freetype271.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>glew32.lib;opengl32.lib;glfw.lib;FreeImage.lib;freetype271.lib;assimp.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>$(SolutionDir)External\Lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
@@ -135,7 +135,7 @@
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <IgnoreSpecificDefaultLibraries>LIBCMTD</IgnoreSpecificDefaultLibraries>
-      <AdditionalDependencies>glew32.lib;opengl32.lib;glfw.lib;FreeImage.lib;freetype271.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>glew32.lib;opengl32.lib;glfw.lib;FreeImage.lib;freetype271.lib;assimp.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>$(SolutionDir)External\Lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
@@ -165,12 +165,15 @@
     <ClCompile Include="Scene\Cube.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="Scene\LightCube.cpp" />
+    <ClCompile Include="Scene\Mesh.cpp" />
+    <ClCompile Include="Scene\Model.cpp" />
     <ClCompile Include="Scene\MovingCube.cpp" />
     <ClCompile Include="Scene\SceneObject.cpp" />
     <ClCompile Include="Scene\Skybox.cpp" />
     <ClCompile Include="Scene\Spaceship.cpp" />
     <ClCompile Include="Scene\TextQuad.cpp" />
     <ClCompile Include="Shader.cpp" />
+    <ClCompile Include="Textures\TextureLoader.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Lights\Light.hpp" />
@@ -178,12 +181,15 @@
     <ClInclude Include="Scene\Camera.hpp" />
     <ClInclude Include="Scene\Cube.hpp" />
     <ClInclude Include="Scene\LightCube.hpp" />
+    <ClInclude Include="Scene\Mesh.hpp" />
+    <ClInclude Include="Scene\Model.hpp" />
     <ClInclude Include="Scene\MovingCube.hpp" />
     <ClInclude Include="Scene\SceneObject.hpp" />
     <ClInclude Include="Scene\Skybox.hpp" />
     <ClInclude Include="Scene\Spaceship.hpp" />
     <ClInclude Include="Scene\TextQuad.hpp" />
     <ClInclude Include="Shader.hpp" />
+    <ClInclude Include="Textures\TextureLoader.hpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Shader\basic.frag" />

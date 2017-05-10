@@ -10,9 +10,6 @@
 #include "glm/gtx/rotate_vector.hpp"
 #include <map>
 
-/* FreeImage is used to load images */
-#include <FreeImage.h>
-
 #include "Shader.hpp"
 #include "Scene/Cube.hpp"
 #include "Scene/Skybox.hpp"
@@ -20,6 +17,8 @@
 #include "Scene\TextQuad.hpp"
 #include "Scene\MovingCube.hpp"
 #include "Scene\Camera.hpp"
+#include "Textures\TextureLoader.hpp"
+#include "Scene\Model.hpp"
 
 /* Freetype is used for the HUD -> to draw 2D characters to screen */
 #include <ft2build.h>
@@ -33,8 +32,6 @@ void update(float time_delta, int pressed);
 void draw();
 void cleanup();
 void initTextures();
-GLuint loadTexture(const GLchar* path);
-GLuint loadCubemap(std::vector<const GLchar*> faces);
 void prepareFreeTypeCharacters();
 void renderText(std::string text, GLfloat x, GLfloat y, GLfloat scale, glm::vec3 color, std::map<GLchar, Character> chars);
 
@@ -52,9 +49,13 @@ std::unique_ptr<MovingCube> midCube;
 std::unique_ptr<MovingCube> finishCube;
 std::unique_ptr<LightCube> lightCube;
 std::unique_ptr<TextQuad> textQuad;
+std::unique_ptr<Model> spaceship;
 
 // Camera
 std::unique_ptr<Camera> camera;
+
+// Textuer loader
+std::unique_ptr<TextureLoader> textureLoader = std::make_unique<TextureLoader>();
 
 // Textures
 GLuint cubeMapTexture;
@@ -304,6 +305,8 @@ void init(GLFWwindow* window) {
 	startCube = std::make_unique<MovingCube>(glm::mat4(1.0f), shader.get(), camera.get(), new Metal(vec3(0.905f, 0.298f, 0.235f)), 5.0f);
 	midCube = std::make_unique<MovingCube>(glm::mat4(1.0f), shader.get(), camera.get(), new Metal(vec3(0.905f, 0.298f, 0.235f)), 15.0f);
 	finishCube = std::make_unique<MovingCube>(glm::mat4(1.0f), shader.get(), camera.get(), new Metal(vec3(0.905f, 0.298f, 0.235f)), 25.0f);
+	string spaceshipDir = "Models/spaceship.obj";
+	spaceship = std::make_unique<Model>(spaceshipDir.c_str());
 	textQuad = std::make_unique<TextQuad>(glm::mat4(1.0f), hudShader.get());
 
 	/* Step 3: Use those shaders */
@@ -402,6 +405,9 @@ void draw() {
 	glUniformMatrix4fv(model_location_moving_cube, 1, GL_FALSE, glm::value_ptr(model_finish_cube));
 	finishCube->draw();
 
+	// Spaceship
+	spaceship->draw(*shader.get());
+
 	/* Skybox - ALWAYS DRAW LAST!!!!!!!!!!!!!!!!!!!!!!!!!!!!!11elf
 	* Only 2d objects are allowed to be drawn after skybox
 	/* Change depth function so depth test passes when values are equal to depth buffers content */
@@ -458,111 +464,7 @@ void cleanup() {
 	hudShader.reset(nullptr);
 	/* Camera */
 	camera.reset(nullptr);
-}
-
-/* Used to bind skybox texture to skybox object */
-GLuint loadCubemap(std::vector<const GLchar*> faces)
-{
-	GLuint textureId;
-	glGenTextures(1, &textureId);
-
-	int width, height;
-	char* image;
-
-	glBindTexture(GL_TEXTURE_CUBE_MAP, textureId);
-	for (GLuint i = 0; i < faces.size(); i++) {
-		/* Load texture */
-		FIBITMAP* bitmap = FreeImage_Load(FreeImage_GetFileType(faces[i], 0), faces[i]);
-		int bitsPerPixel = FreeImage_GetBPP(bitmap);
-
-		// Convert to 32bit image iff it not already is
-		FIBITMAP* bitmap32;
-		if (bitsPerPixel == 32) {
-			bitmap32 = bitmap;
-		}
-		else {
-			bitmap32 = FreeImage_ConvertTo32Bits(bitmap);
-		}
-
-		int width = FreeImage_GetWidth(bitmap32);
-		int height = FreeImage_GetHeight(bitmap32);
-
-		// Link texture to id
-		glGenTextures(1, &textureId);
-		glBindTexture(GL_TEXTURE_2D, textureId);
-		glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i,
-			0,
-			GL_RGBA,
-			width,
-			height,
-			0,
-			GL_BGRA,
-			GL_UNSIGNED_BYTE,
-			(void*)FreeImage_GetBits(bitmap32));
-		// Unbind and unload
-		glBindTexture(GL_TEXTURE_2D, 0);
-		FreeImage_Unload(bitmap32);
-		if (bitsPerPixel != 32)
-		{
-			FreeImage_Unload(bitmap);
-		}
-	}
-	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
-
-	return textureId;
-}
-
-/* Function for loading an image from a file, uses the FreeImage library */
-GLuint loadTexture(const GLchar* path) {
-	GLuint textureId;
-
-	FIBITMAP* bitmap = FreeImage_Load(FreeImage_GetFileType(path, 0), path);
-	int bitsPerPixel = FreeImage_GetBPP(bitmap);
-
-	// Convert to 32bit image iff it not already is
-	FIBITMAP* bitmap32;
-	if (bitsPerPixel == 32) {
-		bitmap32 = bitmap;
-	}
-	else {
-		bitmap32 = FreeImage_ConvertTo32Bits(bitmap);
-	}
-
-	int width = FreeImage_GetWidth(bitmap32);
-	int height = FreeImage_GetHeight(bitmap32);
-
-	// Link texture to id
-	glGenTextures(1, &textureId);
-	glBindTexture(GL_TEXTURE_2D, textureId);
-	glTexImage2D(GL_TEXTURE_2D,
-		0,
-		GL_RGBA, 
-		width,
-		height, 
-		0,
-		GL_BGRA, 
-		GL_UNSIGNED_BYTE, 
-		(void*)FreeImage_GetBits(bitmap32));
-	glGenerateMipmap(GL_TEXTURE_2D);
-
-	// Params
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	
-	// Unbind and unload
-	glBindTexture(GL_TEXTURE_2D, 0);
-	FreeImage_Unload(bitmap32);
-	if (bitsPerPixel != 32)
-	{
-		FreeImage_Unload(bitmap);
-	}
-	return textureId;
+	/* Spaceship */
 }
 
 void initTextures() {
@@ -575,7 +477,7 @@ void initTextures() {
 	faces.push_back("Textures/Skybox/purplenebula_dn.png");
 	faces.push_back("Textures/Skybox/purplenebula_bk.png");
 	faces.push_back("Textures/Skybox/purplenebula_ft.png");
-	cubeMapTexture = loadCubemap(faces);
+	cubeMapTexture = textureLoader.get()->loadCubemap(faces);
 }
 
 /* Called in init() - Loads a font and stores its rendered characters in a map */
