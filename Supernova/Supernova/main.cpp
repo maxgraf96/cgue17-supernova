@@ -9,6 +9,7 @@
 #include<vector>
 #include "glm/gtx/rotate_vector.hpp"
 #include <map>
+#include <physx-3.4\PxPhysicsAPI.h>
 
 #include "Shader.hpp"
 #include "Scene/Cube.hpp"
@@ -19,6 +20,8 @@
 #include "Scene\Camera.hpp"
 #include "Textures\TextureLoader.hpp"
 #include "Scene\Model.hpp"
+#include "Shader.hpp"
+
 
 /* Freetype is used for the HUD -> to draw 2D characters to screen */
 #include <ft2build.h>
@@ -26,6 +29,7 @@
 
 using namespace supernova;
 using namespace supernova::scene;
+using namespace physx;
 
 void init(GLFWwindow* window);
 void update(float time_delta, int pressed);
@@ -34,6 +38,8 @@ void cleanup();
 void initTextures();
 void prepareFreeTypeCharacters();
 void renderText(std::string text, GLfloat x, GLfloat y, GLfloat scale, glm::vec3 color, std::map<GLchar, Character> chars);
+void initializePhysX();
+void shutdownPhysX();
 
 //make non global later!
 // Shaders
@@ -64,6 +70,12 @@ GLuint cubeMapTexture;
 FT_Library ft;
 FT_Face face;
 std::map<GLchar, Character> characters;
+
+//PhysX
+PxFoundation* gFoundation = NULL;
+PxPhysics* gPhysics = NULL;
+PxDefaultErrorCallback gErrorCallback;
+PxDefaultAllocator gAllocator;
 
 //camera
 glm::vec3 cameraPos;
@@ -264,6 +276,9 @@ void main(int argc, char** argv) {
 }
 
 void init(GLFWwindow* window) {
+	//initialize PhysX
+	initializePhysX();
+
 	/* Enable Blending for FreeType (HUD) */
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -465,6 +480,9 @@ void cleanup() {
 	/* Camera */
 	camera.reset(nullptr);
 	/* Spaceship */
+
+	//shutdown PhysX
+	shutdownPhysX();
 }
 
 void initTextures() {
@@ -530,4 +548,24 @@ void prepareFreeTypeCharacters() {
 void renderText(std::string text, GLfloat x, GLfloat y, GLfloat scale, glm::vec3 color, std::map<GLchar, Character> chars) {
 	hudShader->useShader();
 	textQuad->draw(text, x, y, scale, color, chars);
+}
+
+/*initalizes PhysX*/
+void initializePhysX() {
+	gFoundation = PxCreateFoundation(PX_FOUNDATION_VERSION, gAllocator, gErrorCallback);
+
+	gPhysics = PxCreatePhysics(PX_PHYSICS_VERSION, *gFoundation, PxTolerancesScale(), true);
+
+	if (gPhysics == NULL) {
+		std::cerr << "Error creating PhysX device." << endl;
+		glfwTerminate;
+		system("PAUSE");
+		exit(EXIT_FAILURE);
+	}
+}
+
+/*shuts down PhysX*/
+void shutdownPhysX() {
+	gPhysics->release();
+	gFoundation->release();
 }
