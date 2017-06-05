@@ -10,6 +10,7 @@
 #include "glm/gtx/rotate_vector.hpp"
 #include <map>
 #include <physx-3.4\PxPhysicsAPI.h>
+#include <physx-3.4\extensions\PxSimpleFactory.h>
 
 #include "Shader.hpp"
 #include "Scene/Cube.hpp"
@@ -21,6 +22,7 @@
 #include "Textures\TextureLoader.hpp"
 #include "Scene\Model.hpp"
 #include "Shader.hpp"
+#include "Scene\PhysXCube.hpp"
 
 
 /* Freetype is used for the HUD -> to draw 2D characters to screen */
@@ -40,6 +42,7 @@ void prepareFreeTypeCharacters();
 void renderText(std::string text, GLfloat x, GLfloat y, GLfloat scale, glm::vec3 color, std::map<GLchar, Character> chars);
 void initializePhysX();
 void shutdownPhysX();
+bool stepPhysX(float dt);
 
 //make non global later!
 // Shaders
@@ -56,6 +59,7 @@ std::unique_ptr<MovingCube> finishCube;
 std::unique_ptr<LightCube> lightCube;
 std::unique_ptr<TextQuad> textQuad;
 std::unique_ptr<Model> spaceship;
+std::unique_ptr<PhysXCube> physXCube;
 
 // Camera
 std::unique_ptr<Camera> camera;
@@ -74,8 +78,15 @@ std::map<GLchar, Character> characters;
 //PhysX
 PxFoundation* gFoundation = NULL;
 PxPhysics* gPhysics = NULL;
+PxScene* gScene = NULL;
+PxDefaultCpuDispatcher* gDispatcher = NULL;
+PxMaterial* gMaterial = NULL;
+
 PxDefaultErrorCallback gErrorCallback;
 PxDefaultAllocator gAllocator;
+
+float gAccumulator = 0.0f;
+float gStepSize = 1.0f / 60.0f;
 
 //camera
 glm::vec3 cameraPos;
@@ -237,6 +248,9 @@ void main(int argc, char** argv) {
 		//update game components
 		update(time_delta, pressed);
 
+		//simulate PhysX (do somewhere else?)
+		stepPhysX(time_delta);
+
 		//draw game components
 		draw();
 
@@ -320,8 +334,28 @@ void init(GLFWwindow* window) {
 	startCube = std::make_unique<MovingCube>(glm::mat4(1.0f), shader.get(), camera.get(), new Metal(vec3(0.905f, 0.298f, 0.235f)), 5.0f);
 	midCube = std::make_unique<MovingCube>(glm::mat4(1.0f), shader.get(), camera.get(), new Metal(vec3(0.905f, 0.298f, 0.235f)), 15.0f);
 	finishCube = std::make_unique<MovingCube>(glm::mat4(1.0f), shader.get(), camera.get(), new Metal(vec3(0.905f, 0.298f, 0.235f)), 25.0f);
+
+	//Create PhysXcube:
+	PxReal density = 1.0f;
+	PxTransform transform(PxVec3(0.0f, 10.0f, 0.0f), PxQuat(PxIDENTITY::PxIdentity));
+	PxVec3 dimensions(0.5f, 0.5f, 0.5f);
+	PxBoxGeometry geometry(dimensions);
+
+	PxRigidDynamic *actor = PxCreateDynamic(*gPhysics, transform, geometry, *gMaterial, density);
+	actor->setAngularDamping(0.75f);
+	actor->setLinearVelocity(PxVec3(0, 0, 0));
+	if (!actor) {
+		cerr << "create actor failed" << endl;
+	}
+	gScene->addActor(*actor);
+	PxRigidActor* box = actor;
+
+	physXCube = std::make_unique<PhysXCube>(glm::mat4(1.0f), box, shader.get(), new Metal(vec3(0.905f, 0.298f, 0.235f)));
+
+	/*
 	string spaceshipDir = "Models/spaceship.obj";
-	spaceship = std::make_unique<Model>(spaceshipDir.c_str());
+	spaceship = std::make_unique<Model>(spaceshipDir.c_str());*/
+
 	textQuad = std::make_unique<TextQuad>(glm::mat4(1.0f), hudShader.get());
 
 	/* Step 3: Use those shaders */
@@ -420,8 +454,32 @@ void draw() {
 	glUniformMatrix4fv(model_location_moving_cube, 1, GL_FALSE, glm::value_ptr(model_finish_cube));
 	finishCube->draw();
 
+	//PhysXCube:
+	PxRigidActor* box = physXCube->actor;
+	PxU32 nShapes = box->getNbShapes();
+	PxShape** shapes = new PxShape*[nShapes];
+
+	box->getShapes(shapes, nShapes);
+	while (nShapes--) {
+		//should switch geometry type here!
+		PxShape* shape = shapes[nShapes];
+		PxMat44 shapePose(PxShapeExt::getGlobalPose(*shape, *box));
+
+		//changed the y-coordinates to make it upside down
+		glm::mat4 model_physXCube = glm::mat4(
+			shapePose.column0.x, shapePose.column0.y * -1.0f, shapePose.column0.z, shapePose.column0.w,
+			shapePose.column1.x, shapePose.column1.y * -1.0f, shapePose.column1.z, shapePose.column1.w,
+			shapePose.column2.x, shapePose.column2.y * -1.0f, shapePose.column2.z, shapePose.column2.w,
+			shapePose.column3.x, shapePose.column3.y * -1.0f, shapePose.column3.z, shapePose.column3.w);
+
+		auto model_location_physXCube = glGetUniformLocation(shader->programHandle, "model");
+		glUniformMatrix4fv(model_location_physXCube, 1, GL_FALSE, glm::value_ptr(model_physXCube));
+		physXCube->draw();
+	}
+	delete[] shapes;
+
 	// Spaceship
-	spaceship->draw(*shader.get());
+	//spaceship->draw(*shader.get());
 
 	/* Skybox - ALWAYS DRAW LAST!!!!!!!!!!!!!!!!!!!!!!!!!!!!!11elf
 	* Only 2d objects are allowed to be drawn after skybox
@@ -480,6 +538,8 @@ void cleanup() {
 	/* Camera */
 	camera.reset(nullptr);
 	/* Spaceship */
+	//spaceship.reset(nullptr);
+
 
 	//shutdown PhysX
 	shutdownPhysX();
@@ -550,7 +610,8 @@ void renderText(std::string text, GLfloat x, GLfloat y, GLfloat scale, glm::vec3
 	textQuad->draw(text, x, y, scale, color, chars);
 }
 
-/*initalizes PhysX*/
+/*initalizes PhysX
+used Tutorial (http://mmmovania.blogspot.co.at/2011/05/simple-bouncing-box-physx3.html) and PhysX Documentation (http://docs.nvidia.com/gameworks/content/gameworkslibrary/physx/guide/Index.html)*/
 void initializePhysX() {
 	gFoundation = PxCreateFoundation(PX_FOUNDATION_VERSION, gAllocator, gErrorCallback);
 
@@ -562,10 +623,50 @@ void initializePhysX() {
 		system("PAUSE");
 		exit(EXIT_FAILURE);
 	}
+
+	PxSceneDesc sceneDesc(gPhysics->getTolerancesScale());
+	sceneDesc.gravity = PxVec3(0.0f, -9.8f, 0.0f);
+	gDispatcher = PxDefaultCpuDispatcherCreate(2);
+	sceneDesc.cpuDispatcher = gDispatcher;
+	sceneDesc.filterShader = PxDefaultSimulationFilterShader;
+	gScene = gPhysics->createScene(sceneDesc);
+
+	if (!gScene) {
+		std::cerr << "create Scene failed!" << endl;
+	}
+
+	//Wut?
+	gScene->setVisualizationParameter(PxVisualizationParameter::eSCALE, 1.0f);
+	gScene->setVisualizationParameter(PxVisualizationParameter::eCOLLISION_SHAPES, 1.0f);
+
+	gMaterial = gPhysics->createMaterial(0.5f, 0.5f, 0.5f);
+
+	//Create actors:
+	//Create ground plane:
+	PxRigidStatic* plane = PxCreatePlane(*gPhysics, PxPlane(0, 1, 0, 0), *gMaterial);
+	if (!plane) {
+		std::cerr << "create plane failed" << endl;
+	}
+	gScene->addActor(*plane);
 }
 
 /*shuts down PhysX*/
 void shutdownPhysX() {
 	gPhysics->release();
 	gFoundation->release();
+}
+
+bool stepPhysX(float dt) {
+	gAccumulator += dt;
+	if (gAccumulator < gStepSize) {
+		return false;
+	}
+
+	gAccumulator -= gStepSize;
+
+	gScene->simulate(gStepSize);
+
+	gScene->fetchResults(true);
+
+	return true;
 }
