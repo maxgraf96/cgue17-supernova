@@ -9,6 +9,8 @@
 #include<vector>
 #include "glm/gtx/rotate_vector.hpp"
 #include <map>
+#include <physx-3.4\PxPhysicsAPI.h>
+#include <physx-3.4\extensions\PxSimpleFactory.h>
 
 #include "Shader.hpp"
 #include "Scene/Cube.hpp"
@@ -19,6 +21,10 @@
 #include "Scene\Camera.hpp"
 #include "Textures\TextureLoader.hpp"
 #include "Scene\Model.hpp"
+#include "Shader.hpp"
+#include "Scene\PhysXCube.hpp"
+#include "CollisionDetector.hpp"
+
 
 /* Freetype is used for the HUD -> to draw 2D characters to screen */
 #include <ft2build.h>
@@ -26,6 +32,7 @@
 
 using namespace supernova;
 using namespace supernova::scene;
+using namespace physx;
 
 void init(GLFWwindow* window);
 void update(float time_delta, int pressed);
@@ -34,6 +41,9 @@ void cleanup();
 void initTextures();
 void prepareFreeTypeCharacters();
 void renderText(std::string text, GLfloat x, GLfloat y, GLfloat scale, glm::vec3 color, std::map<GLchar, Character> chars);
+void initializePhysX();
+void shutdownPhysX();
+bool stepPhysX(float dt);
 
 //make non global later!
 // Shaders
@@ -51,6 +61,7 @@ std::unique_ptr<MovingCube> finishCube;
 std::unique_ptr<LightCube> lightCube;
 std::unique_ptr<TextQuad> textQuad;
 std::unique_ptr<Model> spaceship;
+std::unique_ptr<PhysXCube> physXCube;
 std::unique_ptr<Model> sun;
 
 // Camera
@@ -66,6 +77,19 @@ GLuint cubeMapTexture;
 FT_Library ft;
 FT_Face face;
 std::map<GLchar, Character> characters;
+
+//PhysX
+PxFoundation* gFoundation = NULL;
+PxPhysics* gPhysics = NULL;
+PxScene* gScene = NULL;
+PxDefaultCpuDispatcher* gDispatcher = NULL;
+PxMaterial* gMaterial = NULL;
+
+PxDefaultErrorCallback gErrorCallback;
+PxDefaultAllocator gAllocator;
+
+float gAccumulator = 0.0f;
+float gStepSize = 1.0f / 60.0f;
 
 //camera
 glm::vec3 cameraPos;
@@ -230,6 +254,9 @@ void main(int argc, char** argv) {
 		//update game components
 		update(time_delta, pressed);
 
+		//simulate PhysX (do somewhere else?)
+		stepPhysX(time_delta);
+
 		//draw game components
 		draw();
 
@@ -269,6 +296,9 @@ void main(int argc, char** argv) {
 }
 
 void init(GLFWwindow* window) {
+	//initialize PhysX
+	initializePhysX();
+
 	/* Enable Blending for FreeType (HUD) */
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -313,9 +343,26 @@ void init(GLFWwindow* window) {
 	finishCube = std::make_unique<MovingCube>(glm::mat4(1.0f), shader.get(), camera.get(), new Metal(vec3(0.905f, 0.298f, 0.235f)), 25.0f);
 	//string spaceshipDir = "Models/nanosuit/nanosuit.obj";
 	string spaceshipDir = "Models/spaceship/spaceship.obj";
-
-	spaceship = std::make_unique<Model>(glm::mat4(1.0f), spaceshipDir);
+	spaceship = std::make_unique<Model>(glm::mat4(1.0f), spaceshipDir.c_str());
 	sun = std::make_unique<Model>(glm::mat4(1.0f), "Models/icosphere/icosphere.obj");
+	
+	//Create PhysXcube:
+	PxReal density = 1.0f;
+	PxTransform transform(PxVec3(0.0f, 10.0f, 0.0f), PxQuat(PxIDENTITY::PxIdentity));
+	PxVec3 dimensions(0.5f, 0.5f, 0.5f);
+	PxBoxGeometry geometry(dimensions);
+
+	PxRigidDynamic *actor = PxCreateDynamic(*gPhysics, transform, geometry, *gMaterial, density);
+	actor->setAngularDamping(0.75f);
+	actor->setLinearVelocity(PxVec3(0, 0, 0));
+	if (!actor) {
+		cerr << "create actor failed" << endl;
+	}
+	gScene->addActor(*actor);
+	PxRigidActor* box = actor;
+
+	physXCube = std::make_unique<PhysXCube>(glm::mat4(1.0f), box, shader.get(), new Metal(vec3(0.905f, 0.298f, 0.235f)));
+
 	textQuad = std::make_unique<TextQuad>(glm::mat4(1.0f), hudShader.get());
 
 	/* Step 3: Use those shaders */
@@ -374,13 +421,13 @@ void draw() {
 	lightCube->draw();
 
 	// Sun
-	shader->useShader();
+	/*shader->useShader();
 	auto view_projection_location_sun = glGetUniformLocation(shader->programHandle, "proj");
 	glUniformMatrix4fv(view_projection_location_sun, 1, GL_FALSE, glm::value_ptr(view_projection));
 	auto& model_sun = sun->modelMatrix;
 	auto model_location_sun = glGetUniformLocation(shader->programHandle, "model");
 	glUniformMatrix4fv(model_location_sun, 1, GL_FALSE, glm::value_ptr(model_sun));
-	sun->draw(shader.get());
+	sun->draw(shader.get());*/
 
 	/* Cube */
 	shader->useShader();
@@ -437,6 +484,30 @@ void draw() {
 	auto model_location_finish_cube = glGetUniformLocation(shader->programHandle, "model");
 	glUniformMatrix4fv(model_location_moving_cube, 1, GL_FALSE, glm::value_ptr(model_finish_cube));
 	finishCube->draw();
+
+	//PhysXCube:
+	PxRigidActor* box = physXCube->actor;
+	PxU32 nShapes = box->getNbShapes();
+	PxShape** shapes = new PxShape*[nShapes];
+
+	box->getShapes(shapes, nShapes);
+	while (nShapes--) {
+		//should switch geometry type here!
+		PxShape* shape = shapes[nShapes];
+		PxMat44 shapePose(PxShapeExt::getGlobalPose(*shape, *box));
+
+		//changed the y-coordinates to make it upside down
+		glm::mat4 model_physXCube = glm::mat4(
+			shapePose.column0.x, shapePose.column0.y, shapePose.column0.z, shapePose.column0.w,
+			shapePose.column1.x, shapePose.column1.y, shapePose.column1.z, shapePose.column1.w,
+			shapePose.column2.x, shapePose.column2.y, shapePose.column2.z, shapePose.column2.w,
+			shapePose.column3.x, shapePose.column3.y, shapePose.column3.z, shapePose.column3.w);
+
+		auto model_location_physXCube = glGetUniformLocation(shader->programHandle, "model");
+		glUniformMatrix4fv(model_location_physXCube, 1, GL_FALSE, glm::value_ptr(model_physXCube));
+		physXCube->draw();
+	}
+	delete[] shapes;
 
 
 	/* Skybox - ALWAYS DRAW LAST!!!!!!!!!!!!!!!!!!!!!!!!!!!!!11elf
@@ -566,4 +637,65 @@ void prepareFreeTypeCharacters() {
 void renderText(std::string text, GLfloat x, GLfloat y, GLfloat scale, glm::vec3 color, std::map<GLchar, Character> chars) {
 	hudShader->useShader();
 	textQuad->draw(text, x, y, scale, color, chars);
+}
+
+/*initalizes PhysX
+used Tutorial (http://mmmovania.blogspot.co.at/2011/05/simple-bouncing-box-physx3.html) and PhysX Documentation (http://docs.nvidia.com/gameworks/content/gameworkslibrary/physx/guide/Index.html)*/
+void initializePhysX() {
+	gFoundation = PxCreateFoundation(PX_FOUNDATION_VERSION, gAllocator, gErrorCallback);
+
+	gPhysics = PxCreatePhysics(PX_PHYSICS_VERSION, *gFoundation, PxTolerancesScale(), true);
+
+	if (gPhysics == NULL) {
+		std::cerr << "Error creating PhysX device." << endl;
+		glfwTerminate;
+		system("PAUSE");
+		exit(EXIT_FAILURE);
+	}
+
+	PxSceneDesc sceneDesc(gPhysics->getTolerancesScale());
+	sceneDesc.gravity = PxVec3(0.0f, -9.8f, 0.0f);
+	gDispatcher = PxDefaultCpuDispatcherCreate(2);
+	sceneDesc.cpuDispatcher = gDispatcher;
+	sceneDesc.filterShader = PxDefaultSimulationFilterShader;
+	gScene = gPhysics->createScene(sceneDesc);
+
+	if (!gScene) {
+		std::cerr << "create Scene failed!" << endl;
+	}
+
+	//Wut?
+	gScene->setVisualizationParameter(PxVisualizationParameter::eSCALE, 1.0f);
+	gScene->setVisualizationParameter(PxVisualizationParameter::eCOLLISION_SHAPES, 1.0f);
+
+	gMaterial = gPhysics->createMaterial(0.5f, 0.5f, 0.5f);
+
+	//Create actors:
+	//Create ground plane:
+	PxRigidStatic* plane = PxCreatePlane(*gPhysics, PxPlane(0, 1, 0, 2), *gMaterial);
+	if (!plane) {
+		std::cerr << "create plane failed" << endl;
+	}
+	gScene->addActor(*plane);
+}
+
+/*shuts down PhysX*/
+void shutdownPhysX() {
+	gPhysics->release();
+	gFoundation->release();
+}
+
+bool stepPhysX(float dt) {
+	gAccumulator += dt;
+	if (gAccumulator < gStepSize) {
+		return false;
+	}
+
+	gAccumulator -= gStepSize;
+
+	gScene->simulate(gStepSize);
+
+	gScene->fetchResults(true);
+
+	return true;
 }

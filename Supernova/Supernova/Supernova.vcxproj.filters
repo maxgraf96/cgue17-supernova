@@ -60,6 +60,9 @@
     <ClCompile Include="Lights\DirectionalLight.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="Scene\PhysXCube.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Shader.hpp">
@@ -99,6 +102,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="Lights\Light.cpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Scene\PhysXCube.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

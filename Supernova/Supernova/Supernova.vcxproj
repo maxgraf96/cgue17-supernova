@@ -98,7 +98,7 @@
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <IgnoreSpecificDefaultLibraries>LIBCMTD</IgnoreSpecificDefaultLibraries>
-      <AdditionalDependencies>glew32.lib;opengl32.lib;glfw.lib;FreeImage.lib;freetype271.lib;assimp.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>glew32.lib;opengl32.lib;glfw.lib;FreeImage.lib;freetype271.lib;assimp.lib;PhysX3DEBUG_x86.lib;PxFoundationDEBUG_x86.lib;PhysX3ExtensionsDEBUG.lib;PhysX3CommonDEBUG_x86.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>$(SolutionDir)External\Lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
@@ -135,7 +135,7 @@
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <IgnoreSpecificDefaultLibraries>LIBCMTD</IgnoreSpecificDefaultLibraries>
-      <AdditionalDependencies>glew32.lib;opengl32.lib;glfw.lib;FreeImage.lib;freetype271.lib;assimp.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>glew32.lib;opengl32.lib;glfw.lib;FreeImage.lib;freetype271.lib;assimp.lib;PhysX3DEBUG_x86.lib;PxFoundationDEBUG_x86.lib;PhysX3ExtensionsDEBUG.lib;PhysX3CommonDEBUG_x86.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>$(SolutionDir)External\Lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
@@ -170,6 +170,7 @@
     <ClCompile Include="Scene\Mesh.cpp" />
     <ClCompile Include="Scene\Model.cpp" />
     <ClCompile Include="Scene\MovingCube.cpp" />
+    <ClCompile Include="Scene\PhysXCube.cpp" />
     <ClCompile Include="Scene\SceneObject.cpp" />
     <ClCompile Include="Scene\Skybox.cpp" />
     <ClCompile Include="Scene\TextQuad.cpp" />
@@ -185,6 +186,7 @@
     <ClInclude Include="Scene\Mesh.hpp" />
     <ClInclude Include="Scene\Model.hpp" />
     <ClInclude Include="Scene\MovingCube.hpp" />
+    <ClInclude Include="Scene\PhysXCube.hpp" />
     <ClInclude Include="Scene\SceneObject.hpp" />
     <ClInclude Include="Scene\Skybox.hpp" />
     <ClInclude Include="Scene\TextQuad.hpp" />
