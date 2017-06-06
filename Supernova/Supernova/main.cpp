@@ -329,11 +329,18 @@ void init(GLFWwindow* window) {
 	view = camera->viewMatrix;
 
 	/* Step 1: Create shaders */
-	shader = std::make_unique<Shader>("Shader/basic.vert", "Shader/basic.frag");
-	skyboxShader = std::make_unique<Shader>("Shader/skybox.vert", "Shader/skybox.frag");
-	lightCubeShader = std::make_unique<Shader>("Shader/lightCube.vert", "Shader/lightCube.frag");
-	hudShader = std::make_unique<Shader>("Shader/hud.vert", "Shader/hud.frag");
-	textureShader = std::make_unique<Shader>("Shader/textureShader.vert", "Shader/textureShader.frag");// Shader for textured objects
+	shader = std::make_unique<Shader>("Shader/basic.vert", "Shader/basic.frag", true);
+	skyboxShader = std::make_unique<Shader>("Shader/skybox.vert", "Shader/skybox.frag", true);
+	lightCubeShader = std::make_unique<Shader>("Shader/lightCube.vert", "Shader/lightCube.frag", true);
+	hudShader = std::make_unique<Shader>("Shader/hud.vert", "Shader/hud.frag", true);
+	textureShader = std::make_unique<Shader>("Shader/textureShader.vert", "Shader/textureShader.frag", true);// Shader for textured objects
+
+	// Zelda
+	shader->link();
+	skyboxShader->link();
+	lightCubeShader->link();
+	hudShader->link();
+	textureShader->link();
 
 	/* Step 2: Create scene objects and assign shaders */
 	skybox = std::make_unique<Skybox>(glm::mat4(1.0f), skyboxShader.get(), cubeMapTexture);

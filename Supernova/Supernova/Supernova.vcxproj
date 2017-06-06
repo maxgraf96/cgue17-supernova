@@ -163,6 +163,7 @@
     <ClCompile Include="Lights\DirectionalLight.cpp" />
     <ClCompile Include="Lights\PointLight.cpp" />
     <ClCompile Include="Materials\Metal.cpp" />
+    <ClCompile Include="Particles\ParticleTF.cpp" />
     <ClCompile Include="Scene\Camera.cpp" />
     <ClCompile Include="Scene\Cube.cpp" />
     <ClCompile Include="main.cpp" />
@@ -180,6 +181,7 @@
   <ItemGroup>
     <ClInclude Include="Lights\Light.cpp" />
     <ClInclude Include="Materials\Material.hpp" />
+    <ClInclude Include="Particles\ParticleTF.hpp" />
     <ClInclude Include="Scene\Camera.hpp" />
     <ClInclude Include="Scene\Cube.hpp" />
     <ClInclude Include="Scene\LightCube.hpp" />
@@ -200,6 +202,8 @@
     <None Include="Shader\hud.vert" />
     <None Include="Shader\lightCube.frag" />
     <None Include="Shader\lightCube.vert" />
+    <None Include="Shader\particleUpdate.geom" />
+    <None Include="Shader\particleUpdate.vert" />
     <None Include="Shader\skybox.frag" />
     <None Include="Shader\skybox.vert" />
     <None Include="Shader\textureShader.frag" />

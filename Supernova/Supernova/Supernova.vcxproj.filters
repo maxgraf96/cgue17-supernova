@@ -63,6 +63,9 @@
     <ClCompile Include="Scene\PhysXCube.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="Particles\ParticleTF.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Shader.hpp">
@@ -107,6 +110,9 @@
     <ClInclude Include="Scene\PhysXCube.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="Particles\ParticleTF.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="Shader\basic.vert" />
@@ -119,6 +125,8 @@
     <None Include="Shader\hud.frag" />
     <None Include="Shader\textureShader.frag" />
     <None Include="Shader\textureShader.vert" />
+    <None Include="Shader\particleUpdate.vert" />
+    <None Include="Shader\particleUpdate.geom" />
   </ItemGroup>
   <ItemGroup>
     <Image Include="Textures\Skybox\purplenebula_bk.png">
