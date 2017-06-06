@@ -166,6 +166,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="CollisionDetector.cpp" />
     <ClCompile Include="Materials\Metal.cpp" />
     <ClCompile Include="Scene\Camera.cpp" />
     <ClCompile Include="Scene\Cube.cpp" />
@@ -183,6 +184,7 @@
     <ClCompile Include="Textures\TextureLoader.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="CollisionDetector.hpp" />
     <ClInclude Include="Lights\Light.hpp" />
     <ClInclude Include="Materials\Material.hpp" />
     <ClInclude Include="Scene\Camera.hpp" />

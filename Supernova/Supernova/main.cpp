@@ -23,6 +23,7 @@
 #include "Scene\Model.hpp"
 #include "Shader.hpp"
 #include "Scene\PhysXCube.hpp"
+#include "CollisionDetector.hpp"
 
 
 /* Freetype is used for the HUD -> to draw 2D characters to screen */
@@ -467,10 +468,10 @@ void draw() {
 
 		//changed the y-coordinates to make it upside down
 		glm::mat4 model_physXCube = glm::mat4(
-			shapePose.column0.x, shapePose.column0.y * -1.0f, shapePose.column0.z, shapePose.column0.w,
-			shapePose.column1.x, shapePose.column1.y * -1.0f, shapePose.column1.z, shapePose.column1.w,
-			shapePose.column2.x, shapePose.column2.y * -1.0f, shapePose.column2.z, shapePose.column2.w,
-			shapePose.column3.x, shapePose.column3.y * -1.0f, shapePose.column3.z, shapePose.column3.w);
+			shapePose.column0.x, shapePose.column0.y, shapePose.column0.z, shapePose.column0.w,
+			shapePose.column1.x, shapePose.column1.y, shapePose.column1.z, shapePose.column1.w,
+			shapePose.column2.x, shapePose.column2.y, shapePose.column2.z, shapePose.column2.w,
+			shapePose.column3.x, shapePose.column3.y, shapePose.column3.z, shapePose.column3.w);
 
 		auto model_location_physXCube = glGetUniformLocation(shader->programHandle, "model");
 		glUniformMatrix4fv(model_location_physXCube, 1, GL_FALSE, glm::value_ptr(model_physXCube));
@@ -643,7 +644,7 @@ void initializePhysX() {
 
 	//Create actors:
 	//Create ground plane:
-	PxRigidStatic* plane = PxCreatePlane(*gPhysics, PxPlane(0, 1, 0, 0), *gMaterial);
+	PxRigidStatic* plane = PxCreatePlane(*gPhysics, PxPlane(0, 1, 0, 2), *gMaterial);
 	if (!plane) {
 		std::cerr << "create plane failed" << endl;
 	}
