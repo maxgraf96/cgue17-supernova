@@ -14,6 +14,6 @@ using namespace std;
 class TextureLoader {
 public:
 	TextureLoader() {}
-	GLuint load(const GLchar* path);
+	GLint load(const char* path);
 	GLuint loadCubemap(std::vector<const GLchar*> faces);
 };

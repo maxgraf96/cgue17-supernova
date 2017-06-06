@@ -5,8 +5,11 @@
 #include <assimp/Importer.hpp>
 #include <assimp/scene.h>
 #include <assimp/postprocess.h>
+#include <glm/gtc/type_ptr.hpp>
+#include <memory>
 
 #include "../Shader.hpp"
+#include "../Materials/Material.hpp"
 
 // Never forget
 using namespace supernova;
@@ -24,16 +27,22 @@ struct Texture {
 	aiString path;
 };
 
-class Mesh {
-	public:
-		vector<Vertex> vertices;
-		vector<GLuint> indices;
-		vector<Texture> textures;
+namespace supernova {
+	namespace scene {
+		class Mesh {
+		public:
+			vector<Vertex> vertices;
+			vector<unsigned int> indices;
+			vector<Texture> textures;
 
-		Mesh(vector<Vertex> vertices, vector<GLuint> indices, vector<Texture> textures);
-		~Mesh();
-		void draw(Shader shader);
-	private: 
-		GLuint vao, vbo, ebo;
-		void setup();
-};
+			Mesh(vector<Vertex> vertices, vector<unsigned int> indices, vector<Texture> textures, Material* _material);
+			~Mesh();
+			void draw(Shader* shader);
+		private:
+			GLuint vao, vbo, ebo;
+			// Material, if no texture is specified
+			Material* noTextureMaterial;
+			void setup();
+		};
+	}
+}

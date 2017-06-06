@@ -7,6 +7,13 @@ namespace supernova {
 		class Material
 		{
 		public:
+
+			supernova::scene::Material(vec3 _ambient, vec3 _diffuse, vec3 _specular, float _shininess) :
+			ambient(_ambient), diffuse(_diffuse), specular(_specular), shininess(_shininess) {}
+
+			supernova::scene::Material(vec3 _color, vec3 _specular, float _shininess) 
+			: ambient(_color), diffuse(_color), specular(_specular), shininess(_shininess) {}
+
 			vec3& getAmbient() {
 				return ambient;
 			}

@@ -6,16 +6,6 @@
 #include<memory>
 #include<map>
 
-/*________________________________________________
-
-
-
-Use later to replace light cube with abstract light objects!
-
-
-__________________________________________________*/
-
-
 namespace supernova {
 	using namespace glm;
 	namespace scene {

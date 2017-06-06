@@ -160,6 +160,8 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="Lights\DirectionalLight.cpp" />
+    <ClCompile Include="Lights\PointLight.cpp" />
     <ClCompile Include="Materials\Metal.cpp" />
     <ClCompile Include="Scene\Camera.cpp" />
     <ClCompile Include="Scene\Cube.cpp" />
@@ -170,13 +172,12 @@
     <ClCompile Include="Scene\MovingCube.cpp" />
     <ClCompile Include="Scene\SceneObject.cpp" />
     <ClCompile Include="Scene\Skybox.cpp" />
-    <ClCompile Include="Scene\Spaceship.cpp" />
     <ClCompile Include="Scene\TextQuad.cpp" />
     <ClCompile Include="Shader.cpp" />
     <ClCompile Include="Textures\TextureLoader.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="Lights\Light.hpp" />
+    <ClInclude Include="Lights\Light.cpp" />
     <ClInclude Include="Materials\Material.hpp" />
     <ClInclude Include="Scene\Camera.hpp" />
     <ClInclude Include="Scene\Cube.hpp" />
@@ -186,7 +187,6 @@
     <ClInclude Include="Scene\MovingCube.hpp" />
     <ClInclude Include="Scene\SceneObject.hpp" />
     <ClInclude Include="Scene\Skybox.hpp" />
-    <ClInclude Include="Scene\Spaceship.hpp" />
     <ClInclude Include="Scene\TextQuad.hpp" />
     <ClInclude Include="Shader.hpp" />
     <ClInclude Include="Textures\TextureLoader.hpp" />
@@ -200,6 +200,8 @@
     <None Include="Shader\lightCube.vert" />
     <None Include="Shader\skybox.frag" />
     <None Include="Shader\skybox.vert" />
+    <None Include="Shader\textureShader.frag" />
+    <None Include="Shader\textureShader.vert" />
   </ItemGroup>
   <ItemGroup>
     <Image Include="Textures\Skybox\purplenebula_bk.png" />

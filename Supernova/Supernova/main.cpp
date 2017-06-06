@@ -41,6 +41,7 @@ std::unique_ptr<Shader> shader;
 std::unique_ptr<Shader> skyboxShader;
 std::unique_ptr<Shader> lightCubeShader;
 std::unique_ptr<Shader> hudShader;
+std::unique_ptr<Shader> textureShader;
 
 // Game objects
 std::unique_ptr<Skybox> skybox;
@@ -50,6 +51,7 @@ std::unique_ptr<MovingCube> finishCube;
 std::unique_ptr<LightCube> lightCube;
 std::unique_ptr<TextQuad> textQuad;
 std::unique_ptr<Model> spaceship;
+std::unique_ptr<Model> sun;
 
 // Camera
 std::unique_ptr<Camera> camera;
@@ -149,6 +151,9 @@ void main(int argc, char** argv) {
 
 	bool running = true;
 	auto time = glfwGetTime();
+
+	// Wireframe
+	//glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 
 	while (running && !glfwWindowShouldClose(window)) {
 
@@ -298,6 +303,7 @@ void init(GLFWwindow* window) {
 	skyboxShader = std::make_unique<Shader>("Shader/skybox.vert", "Shader/skybox.frag");
 	lightCubeShader = std::make_unique<Shader>("Shader/lightCube.vert", "Shader/lightCube.frag");
 	hudShader = std::make_unique<Shader>("Shader/hud.vert", "Shader/hud.frag");
+	textureShader = std::make_unique<Shader>("Shader/textureShader.vert", "Shader/textureShader.frag");// Shader for textured objects
 
 	/* Step 2: Create scene objects and assign shaders */
 	skybox = std::make_unique<Skybox>(glm::mat4(1.0f), skyboxShader.get(), cubeMapTexture);
@@ -305,14 +311,18 @@ void init(GLFWwindow* window) {
 	startCube = std::make_unique<MovingCube>(glm::mat4(1.0f), shader.get(), camera.get(), new Metal(vec3(0.905f, 0.298f, 0.235f)), 5.0f);
 	midCube = std::make_unique<MovingCube>(glm::mat4(1.0f), shader.get(), camera.get(), new Metal(vec3(0.905f, 0.298f, 0.235f)), 15.0f);
 	finishCube = std::make_unique<MovingCube>(glm::mat4(1.0f), shader.get(), camera.get(), new Metal(vec3(0.905f, 0.298f, 0.235f)), 25.0f);
-	string spaceshipDir = "Models/spaceship.obj";
-	spaceship = std::make_unique<Model>(spaceshipDir.c_str());
+	//string spaceshipDir = "Models/nanosuit/nanosuit.obj";
+	string spaceshipDir = "Models/spaceship/spaceship.obj";
+
+	spaceship = std::make_unique<Model>(glm::mat4(1.0f), spaceshipDir);
+	sun = std::make_unique<Model>(glm::mat4(1.0f), "Models/icosphere/icosphere.obj");
 	textQuad = std::make_unique<TextQuad>(glm::mat4(1.0f), hudShader.get());
 
 	/* Step 3: Use those shaders */
 	shader->useShader();
-	skyboxShader->useShader();
 	lightCubeShader->useShader();
+	textureShader->useShader();
+	skyboxShader->useShader();
 	hudShader->useShader();
 
 	int width;
@@ -326,16 +336,30 @@ void init(GLFWwindow* window) {
 
 void update(float time_delta, int pressed) {
 	skybox->update(time_delta, pressed);
+
 	lightCube->update(time_delta, pressed);
 	startCube->update(time_delta, pressed);
 	midCube->update(time_delta, pressed);
 	finishCube->update(time_delta, pressed);
+	spaceship->update(time_delta, pressed);
+
 	textQuad->update(time_delta, pressed);
 }
 
 void draw() {
 	//generate view projection matrix
 	auto view_projection = projection * view;
+
+	/*-------------------- Textured objects --------------------- */
+
+	// Spaceship
+	/*textureShader->useShader();
+	auto view_projection_location_spaceship = glGetUniformLocation(textureShader->programHandle, "proj");
+	glUniformMatrix4fv(view_projection_location_spaceship, 1, GL_FALSE, glm::value_ptr(view_projection));
+	auto& model_spaceship = spaceship->modelMatrix;
+	auto model_location_spaceship = glGetUniformLocation(textureShader->programHandle, "model");
+	glUniformMatrix4fv(model_location_spaceship, 1, GL_FALSE, glm::value_ptr(model_spaceship));
+	spaceship->draw(textureShader.get());*/
 
 	/* Light Cube */
 	lightCubeShader->useShader();
@@ -348,6 +372,15 @@ void draw() {
 	auto model_location_light_cube = glGetUniformLocation(lightCubeShader->programHandle, "model");
 	glUniformMatrix4fv(model_location_light_cube, 1, GL_FALSE, glm::value_ptr(model_light_cube));
 	lightCube->draw();
+
+	// Sun
+	shader->useShader();
+	auto view_projection_location_sun = glGetUniformLocation(shader->programHandle, "proj");
+	glUniformMatrix4fv(view_projection_location_sun, 1, GL_FALSE, glm::value_ptr(view_projection));
+	auto& model_sun = sun->modelMatrix;
+	auto model_location_sun = glGetUniformLocation(shader->programHandle, "model");
+	glUniformMatrix4fv(model_location_sun, 1, GL_FALSE, glm::value_ptr(model_sun));
+	sun->draw(shader.get());
 
 	/* Cube */
 	shader->useShader();
@@ -405,17 +438,16 @@ void draw() {
 	glUniformMatrix4fv(model_location_moving_cube, 1, GL_FALSE, glm::value_ptr(model_finish_cube));
 	finishCube->draw();
 
-	// Spaceship
-	spaceship->draw(*shader.get());
 
 	/* Skybox - ALWAYS DRAW LAST!!!!!!!!!!!!!!!!!!!!!!!!!!!!!11elf
 	* Only 2d objects are allowed to be drawn after skybox
 	/* Change depth function so depth test passes when values are equal to depth buffers content */
 	glDepthFunc(GL_LEQUAL);
+	glDepthMask(GL_FALSE);
 	skyboxShader->useShader();
 	/* Remove translation component from matrix for skybox */
 	view = glm::mat4(glm::mat3(view));
-	
+
 	auto& skyboxModel = skybox->modelMatrix;
 	auto skyboxModel_location = glGetUniformLocation(skyboxShader->programHandle, "model");
 	glUniformMatrix4fv(skyboxModel_location, 1, GL_FALSE, glm::value_ptr(skyboxModel));
@@ -428,6 +460,7 @@ void draw() {
 
 	/* Reset depth function */
 	glDepthFunc(GL_LESS);
+	glDepthMask(GL_TRUE);
 
 	/* HUD */
 	glm::mat4 hudProjectionMat = glm::ortho(0.0f, static_cast<GLfloat>(width), 0.0f, static_cast<GLfloat>(height));
@@ -445,6 +478,7 @@ void draw() {
 	if (camera.get()->getPosition().z > 25) {
 		renderText("You win!", 550.0f, 380.0f, 1.0f, glm::vec3(1.0f, 1.0f, 1.0f), characters);
 	}
+
 }
 
 void cleanup() {
@@ -465,6 +499,8 @@ void cleanup() {
 	/* Camera */
 	camera.reset(nullptr);
 	/* Spaceship */
+	textureShader.reset(nullptr);
+	spaceship.reset(nullptr);
 }
 
 void initTextures() {

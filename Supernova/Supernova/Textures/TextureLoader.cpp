@@ -1,10 +1,12 @@
 #include "TextureLoader.hpp"
 
 /* Function for loading an image from a file, uses the FreeImage library */
-GLuint TextureLoader::load(const GLchar* path) {
-	GLuint textureId;
+GLint TextureLoader::load(const char* path) {
+	unsigned int textureId;
+	// Link texture to id
+	glGenTextures(1, &textureId);
 
-	FIBITMAP* bitmap = FreeImage_Load(FreeImage_GetFileType(path, 0), path);
+	auto bitmap = FreeImage_Load(FreeImage_GetFileType(path, 0), path);
 	int bitsPerPixel = FreeImage_GetBPP(bitmap);
 
 	// Convert to 32bit image iff it not already is
@@ -19,8 +21,6 @@ GLuint TextureLoader::load(const GLchar* path) {
 	int width = FreeImage_GetWidth(bitmap32);
 	int height = FreeImage_GetHeight(bitmap32);
 
-	// Link texture to id
-	glGenTextures(1, &textureId);
 	glBindTexture(GL_TEXTURE_2D, textureId);
 	glTexImage2D(GL_TEXTURE_2D,
 		0,
@@ -30,7 +30,8 @@ GLuint TextureLoader::load(const GLchar* path) {
 		0,
 		GL_BGRA,
 		GL_UNSIGNED_BYTE,
-		(void*)FreeImage_GetBits(bitmap32));
+		(GLvoid*)FreeImage_GetBits(bitmap32));
+	
 	glGenerateMipmap(GL_TEXTURE_2D);
 
 	// Params
@@ -39,13 +40,9 @@ GLuint TextureLoader::load(const GLchar* path) {
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
-	// Unbind and unload
+
+	// Unbind
 	glBindTexture(GL_TEXTURE_2D, 0);
-	FreeImage_Unload(bitmap32);
-	if (bitsPerPixel != 32)
-	{
-		FreeImage_Unload(bitmap);
-	}
 	return textureId;
 }
 
@@ -80,7 +77,7 @@ GLuint TextureLoader::loadCubemap(std::vector<const GLchar*> faces) {
 		glBindTexture(GL_TEXTURE_2D, textureId);
 		glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i,
 			0,
-			GL_RGBA,
+			GL_RGBA8,
 			width,
 			height,
 			0,

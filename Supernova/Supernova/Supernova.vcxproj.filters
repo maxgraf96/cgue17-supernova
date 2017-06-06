@@ -45,9 +45,6 @@
     <ClCompile Include="Scene\Camera.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="Scene\Spaceship.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="Scene\Mesh.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -55,6 +52,12 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="Textures\TextureLoader.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Lights\PointLight.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Lights\DirectionalLight.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -80,16 +83,10 @@
     <ClInclude Include="Materials\Material.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Lights\Light.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="Scene\MovingCube.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="Scene\Camera.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Scene\Spaceship.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="Scene\Mesh.hpp">
@@ -99,6 +96,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="Textures\TextureLoader.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Lights\Light.cpp">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
@@ -111,6 +111,8 @@
     <None Include="Shader\lightCube.frag" />
     <None Include="Shader\hud.vert" />
     <None Include="Shader\hud.frag" />
+    <None Include="Shader\textureShader.frag" />
+    <None Include="Shader\textureShader.vert" />
   </ItemGroup>
   <ItemGroup>
     <Image Include="Textures\Skybox\purplenebula_bk.png">

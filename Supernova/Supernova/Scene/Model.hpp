@@ -6,26 +6,32 @@
 #include <assimp/scene.h>
 #include <assimp/postprocess.h>
 
-#include "../Shader.hpp"
+#include "SceneObject.hpp"
 #include "Mesh.hpp"
+#include "../Textures/TextureLoader.hpp"
 
-// Never forget
-using namespace supernova;
-using namespace std;
 
-class Model {
-	public:
-		Model(const GLchar* path) {
-			this->loadModel(path);
-		}
-		void draw(Shader shader);
-	private:
-		vector<Mesh> meshes;
-		string directory;
-		vector<Texture> alreadyLoadedTextures;
+namespace supernova {
+	namespace scene {
+		class Model : public SceneObject {
+		public:
+			Model();
+			Model(glm::mat4& matrix, string const &path);
+			virtual ~Model();
+			virtual void update(float time_delta, int pressed);
+			virtual void draw(Shader* shader);
+			// Need bc extending SceneObject
+			virtual void draw();
+		private:
+			TextureLoader textureLoader;
+			vector<Mesh> meshes;
+			string directory;
+			vector<Texture> alreadyLoadedTextures;
 
-		void loadModel(string path);
-		void processNode(aiNode* node, const aiScene* scene);
-		Mesh processMesh(aiMesh* mesh, const aiScene* scene);
-		vector<Texture> loadMaterialTextures(aiMaterial* mat, aiTextureType type, string typeName);
-};
+			void loadModel(string const &path);
+			void processNode(aiNode* node, const aiScene* scene);
+			Mesh processMesh(aiMesh* mesh, const aiScene* scene);
+			vector<Texture> loadMaterialTextures(aiMaterial* mat, aiTextureType type, string typeName);
+		};
+	}
+}

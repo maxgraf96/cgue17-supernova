@@ -3,27 +3,51 @@
 #include <assimp/Importer.hpp>
 #include <assimp/scene.h>
 #include <assimp/postprocess.h>
+#include <glm/gtc/matrix_transform.hpp>
+#include<memory>
 
 #include "Model.hpp"
+#include "SceneObject.hpp"
 #include "../Textures/TextureLoader.hpp"
+#include "../Materials/Material.hpp"
 
 
-using namespace std;
+using namespace supernova;
+using namespace supernova::scene;
 
-TextureLoader textureLoader;
+Model::Model()
+	: SceneObject(glm::mat4(1.0f)) {
+}
 
-void Model::draw(Shader shader) {
+Model::Model(glm::mat4& matrix, string const &path)
+	: SceneObject(matrix) {
+	this->loadModel(path);
+}
+
+Model::~Model() {
+
+}
+
+void Model::update(float time_delta, int pressed) {
+	if (pressed == 1) {
+		modelMatrix = glm::rotate(modelMatrix, 0.07f, glm::vec3(0, 1, 0));
+	}
+}
+
+void Model::draw(Shader* shader) {
 	for (GLuint i = 0; i < this->meshes.size(); i++) {
 		this->meshes[i].draw(shader);
 	}
 }
 
-void Model::loadModel(string path) {
+void Model::draw() {};
+
+void Model::loadModel(string const &path) {
 	Assimp::Importer import;
 	const aiScene* scene = import.ReadFile(path, aiProcess_Triangulate | aiProcess_FlipUVs);
 
 	/* Check if scene and root node are not null */
-	if (!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode) {
+	if (!scene || scene->mFlags == AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode) {
 		cout << "ASSIMP ERROR: " << import.GetErrorString() << endl;
 	}
 	/* Get directory of model */
@@ -34,12 +58,12 @@ void Model::loadModel(string path) {
 
 void Model::processNode(aiNode* node, const aiScene* scene) {
 	/* loop through all of the node's meshes */
-	for (GLuint i = 0; i < node->mNumMeshes; i++) {
+	for (unsigned int i = 0; i < node->mNumMeshes; i++) {
 		aiMesh* mesh = scene->mMeshes[node->mMeshes[i]];
 		this->meshes.push_back(this->processMesh(mesh, scene));
 	}
 	/* loop through all meshes of this node's children */
-	for (GLuint i = 0; i < node->mNumChildren; i++) {
+	for (unsigned int i = 0; i < node->mNumChildren; i++) {
 		// recursive
 		this->processNode(node->mChildren[i], scene);
 	}
@@ -47,25 +71,27 @@ void Model::processNode(aiNode* node, const aiScene* scene) {
 
 vector<Texture> Model::loadMaterialTextures(aiMaterial* mat, aiTextureType type, string typeName) {
 	vector<Texture> textures;
-	for (GLuint i = 0; i < mat->GetTextureCount(type); i++) {
+	for (unsigned int i = 0; i < mat->GetTextureCount(type); i++) {
 		aiString str;
 		mat->GetTexture(type, i, &str);
-		GLboolean skip = false;
+		bool skip = false;
 		/* Check if texture was already loaded into memory */
-		for (GLuint j = 0; j < alreadyLoadedTextures.size(); j++) {
+		for (unsigned int j = 0; j < alreadyLoadedTextures.size(); j++) {
 			if (std::strcmp(alreadyLoadedTextures[j].path.C_Str(), str.C_Str()) == 0) {
 				textures.push_back(alreadyLoadedTextures[j]);
 				skip = true;
 				break;
 			}
 		}
-		/* If texture was already loaded, skip it */
+		/* If texture isn't loaded, load it */
 		if (!skip) {
 			Texture texture;
-			texture.id = textureLoader.load(directory.c_str());
+			string testo = (directory + "/" + str.C_Str());
+			texture.id = textureLoader.load(testo.c_str());
 			texture.type = typeName;
 			texture.path = str;
 			textures.push_back(texture);
+			this->alreadyLoadedTextures.push_back(texture);
 		}
 	}
 	return textures;
@@ -75,6 +101,12 @@ Mesh Model::processMesh(aiMesh* mesh, const aiScene* scene) {
 	vector<Vertex> vertices;
 	vector<GLuint> indices;
 	vector<Texture> textures;
+
+	// material for if the mesh has no texture defined
+	std::unique_ptr<Material> noTextureMaterial;
+	aiColor3D colorAmbient;
+	aiColor3D colorDiffuse;
+	aiColor3D colorSpecular;
 
 	for (GLuint i = 0; i < mesh->mNumVertices; i++) {
 		Vertex vertex;
@@ -126,7 +158,17 @@ Mesh Model::processMesh(aiMesh* mesh, const aiScene* scene) {
 		vector<Texture> specularMaps = this->loadMaterialTextures(material,
 			aiTextureType_SPECULAR, "texture_specular");
 		textures.insert(textures.end(), specularMaps.begin(), specularMaps.end());
+
+		material->Get(AI_MATKEY_COLOR_AMBIENT, colorAmbient);
+		material->Get(AI_MATKEY_COLOR_DIFFUSE, colorDiffuse);
+		material->Get(AI_MATKEY_COLOR_SPECULAR, colorSpecular);
+		noTextureMaterial = std::make_unique<Material>(
+			glm::vec3(colorAmbient.r, colorAmbient.b, colorAmbient.g),
+			glm::vec3(colorDiffuse.r, colorDiffuse.b, colorDiffuse.g), 
+			glm::vec3(colorSpecular.r, colorSpecular.b, colorSpecular.g),
+			16.0f
+			);
 	}
 
-	return Mesh(vertices, indices, textures);
+	return Mesh(vertices, indices, textures, noTextureMaterial.get());
 }

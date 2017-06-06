@@ -71,7 +71,11 @@ void Skybox::draw() {
 
 	glActiveTexture(GL_TEXTURE0);
 	glUniform1i(glGetUniformLocation(shader->programHandle, "skybox"), 0);
+	//printf("%d\n", (int)glGetError());
+
 	glBindTexture(GL_TEXTURE_CUBE_MAP, cubeMapTexture);
+	//printf("%d\n", (int)glGetError());
+
 	glDrawElements(GL_TRIANGLES, SKYBOX_INDEX_COUNT, GL_UNSIGNED_INT, 0);
 
 	glBindVertexArray(0);

@@ -2,44 +2,55 @@
 #include <glm\vec2.hpp>
 #include <glm\vec3.hpp>
 #include <sstream>
+#include <iostream>
 
 #include "../Shader.hpp"
 #include "Mesh.hpp"
 
 using namespace std;
 using namespace supernova;
+using namespace supernova::scene;
 
-Mesh::Mesh(vector<Vertex> _vertices, vector<GLuint> _indices, vector<Texture> _textures)
-	: vertices(_vertices), indices(_indices), textures(_textures) {
+Mesh::Mesh(vector<Vertex> _vertices, vector<unsigned int> _indices, vector<Texture> _textures, Material* _material) {
+	this->vertices = _vertices;
+	this->indices = _indices;
+	this->textures = _textures;
+	this->noTextureMaterial = _material;
+
 	this->setup();
 }
 
 Mesh::~Mesh() {}
 
-void Mesh::draw(Shader shader) {
-	GLuint diffuseNr = 1;
-	GLuint specNr = 1;
+void Mesh::draw(Shader* shader) {
+	unsigned int diffuseNr = 1;
+	unsigned int specNr = 1;
 
-	for (GLuint i = 0; i < this->textures.size(); i++) {
-		glActiveTexture(GL_TEXTURE0 + i);
+	// If the mesh has a texture use it - uses the textureShader
+	if (this->textures.size() > 0) {
+		for (GLuint i = 0; i < this->textures.size(); i++) {
+			glActiveTexture(GL_TEXTURE0 + i);
 
-		// Get texture number
-		stringstream ss;
-		string nr;
-		string name = this->textures[i].type;
-		if (name == "texture_diffuse") {
-			ss << diffuseNr++;
+			string name = this->textures[i].type;
+			glUniform1i(glGetUniformLocation(shader->programHandle, ("material." + name).c_str()), i);
+			glBindTexture(GL_TEXTURE_2D, this->textures[i].id);
+
 		}
-		else {
-			ss << specNr++;
-		}
-		nr = ss.str();
-
-		glUniform1f(glGetUniformLocation(shader.programHandle, ("material." + name + nr).c_str()), i);
-		glBindTexture(GL_TEXTURE_2D, this->textures[i].id);
-
 	}
-	glActiveTexture(GL_TEXTURE0);
+	// Else use the color specified in the material - uses the basic shader
+	else {
+		/* Pass material values to shader */
+		GLint matAmbientLoc = glGetUniformLocation(shader->programHandle, "material.ambient");
+		GLint matDiffuseLoc = glGetUniformLocation(shader->programHandle, "material.diffuse");
+		GLint matSpecularLoc = glGetUniformLocation(shader->programHandle, "material.specular");
+		GLint matShininessLoc = glGetUniformLocation(shader->programHandle, "material.shininess");
+		glUniform3f(matAmbientLoc, noTextureMaterial->getAmbient().r, noTextureMaterial->getAmbient().g, noTextureMaterial->getAmbient().b);
+		glUniform3f(matDiffuseLoc, noTextureMaterial->getAmbient().r, noTextureMaterial->getAmbient().g, noTextureMaterial->getAmbient().b);
+		glUniform3f(matSpecularLoc, noTextureMaterial->getSpecular().r, noTextureMaterial->getSpecular().g, noTextureMaterial->getSpecular().b);
+		glUniform1f(matShininessLoc, noTextureMaterial->getShininess());
+	}
+	// Set shininess -> make changeable later
+	//glUniform1f(glGetUniformLocation(shader->programHandle, "material_shininess"), 16.0f);
 
 	/* actual drawing of mesh */
 	glBindVertexArray(this->vao);
@@ -57,7 +68,7 @@ void Mesh::setup() {
 	glBindBuffer(GL_ARRAY_BUFFER, this->vbo);
 
 	glBufferData(GL_ARRAY_BUFFER, this->vertices.size() * sizeof(Vertex),
-		&this->vertices[0], GL_STATIC_DRAW);
+		&vertices[0], GL_STATIC_DRAW);
 
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, this->ebo);
 	glBufferData(GL_ELEMENT_ARRAY_BUFFER, this->indices.size() * sizeof(GLuint),
