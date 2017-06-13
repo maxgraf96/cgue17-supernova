@@ -50,7 +50,7 @@ void Mesh::draw(Shader* shader) {
 		glUniform1f(matShininessLoc, noTextureMaterial->getShininess());
 	}
 	// Set shininess -> make changeable later
-	//glUniform1f(glGetUniformLocation(shader->programHandle, "material_shininess"), 16.0f);
+	glUniform1f(glGetUniformLocation(shader->programHandle, "material.shininess"), 16.0f);
 
 	/* actual drawing of mesh */
 	glBindVertexArray(this->vao);

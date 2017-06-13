@@ -7,7 +7,9 @@
 using namespace supernova;
 using namespace std;
 
-Shader::Shader(const string& firstShader, const string& secondShader, bool vertexFragment)
+Shader::Shader() {};
+
+Shader::Shader(const std::string& firstShader, const std::string& secondShader, bool vertexFragment)
 	: programHandle(0), vertexHandle(0), fragmentHandle(0), geometryHandle(0) {
 	programHandle = glCreateProgram();
 
@@ -21,14 +23,21 @@ Shader::Shader(const string& firstShader, const string& secondShader, bool verte
 	if (vertexFragment) {
 		loadShader(firstShader, GL_VERTEX_SHADER, vertexHandle);
 		loadShader(secondShader, GL_FRAGMENT_SHADER, fragmentHandle);
+
+		// new
+		attachToShaderProgram(vertexHandle);
+		attachToShaderProgram(fragmentHandle);
 	}
 	else {
 		loadShader(firstShader, GL_VERTEX_SHADER, vertexHandle);
 		loadShader(secondShader, GL_GEOMETRY_SHADER, geometryHandle);
+
+		attachToShaderProgram(vertexHandle);
+		attachToShaderProgram(geometryHandle);
 	}
 }
 
-Shader::Shader(const string& vertexShader, const string& fragmentShader, const string& geometryShader)
+Shader::Shader(const std::string& vertexShader, const std::string& fragmentShader, const std::string& geometryShader)
 	: programHandle(0), vertexHandle(0), fragmentHandle(0), geometryHandle(0) {
 	programHandle = glCreateProgram();
 
@@ -40,14 +49,19 @@ Shader::Shader(const string& vertexShader, const string& fragmentShader, const s
 	}
 
 	loadShader(vertexShader, GL_VERTEX_SHADER, vertexHandle);
-	loadShader(fragmentShader, GL_FRAGMENT_SHADER, fragmentHandle);
 	loadShader(geometryShader, GL_GEOMETRY_SHADER, geometryHandle);
+	loadShader(fragmentShader, GL_FRAGMENT_SHADER, fragmentHandle);
+
+	attachToShaderProgram(vertexHandle);
+	attachToShaderProgram(geometryHandle);
+	attachToShaderProgram(fragmentHandle);
 }
 
 Shader::~Shader() {
 	glDeleteProgram(programHandle);
 	glDeleteShader(vertexHandle);
 	glDeleteShader(fragmentHandle);
+	glDeleteShader(geometryHandle);
 }
 
 void Shader::useShader() const {
@@ -74,7 +88,7 @@ void Shader::loadShader(const std::string& shader, GLenum shaderType, GLuint& ha
 
 		//compile shader
 		auto codePtr = code.c_str();
-		glShaderSource(handle, 1, &codePtr, nullptr);
+		glShaderSource(handle, 1, &codePtr, NULL);
 		glCompileShader(handle);
 
 		//test for compilation errors
@@ -103,20 +117,16 @@ void Shader::loadShader(const std::string& shader, GLenum shaderType, GLuint& ha
 	}
 }
 
+void Shader::attachToShaderProgram(GLuint handle) {
+	if (handle != 0) {
+		glAttachShader(programHandle, handle);
+	}
+}
+
 void Shader::link() {
-	//Attach shader to program
-	if (vertexHandle != 0) {
-		glAttachShader(programHandle, vertexHandle);
-	}
-	if (fragmentHandle != 0) {
-		glAttachShader(programHandle, fragmentHandle);
-	}
-	if (geometryHandle != 0) {
-		glAttachShader(programHandle, geometryHandle);
-	}
 
 	//Bind output here
-	glBindFragDataLocation(programHandle, 0, "fragColor");
+	//glBindFragDataLocation(programHandle, 0, "fragColor");
 
 	//link programs
 	glLinkProgram(programHandle);
@@ -140,6 +150,55 @@ void Shader::link() {
 		exit(EXIT_FAILURE);
 	}
 }
+
+void Shader::setLightSources(supernova::scene::DirectionalLight dirLight, supernova::scene::PointLight pointLights[], supernova::scene::Camera* camera) {
+	// Directional light
+	GLint dirLightDirectionLoc = glGetUniformLocation(programHandle, "dirLight.direction");
+	GLint dirLightAmbientLoc = glGetUniformLocation(programHandle, "dirLight.ambient");
+	GLint dirLightDiffuseLoc = glGetUniformLocation(programHandle, "dirLight.diffuse");
+	GLint dirLightSpecularLoc = glGetUniformLocation(programHandle, "dirLight.specular");
+
+	glUniform3f(dirLightDirectionLoc, dirLight.getDirection().x, dirLight.getDirection().y, dirLight.getDirection().z);
+	glUniform3f(dirLightAmbientLoc, dirLight.getAmbient().x, dirLight.getAmbient().y, dirLight.getAmbient().z);
+	glUniform3f(dirLightDiffuseLoc, dirLight.getDiffuse().x, dirLight.getDiffuse().y, dirLight.getDiffuse().z);
+	glUniform3f(dirLightSpecularLoc, dirLight.getSpecular().x, dirLight.getSpecular().y, dirLight.getSpecular().z);
+
+	// Point lights
+	for (GLuint i = 0; i < 20; i++)
+	{
+		supernova::scene::PointLight test = pointLights[i];
+		if (!pointLights[i].isInitialized()) continue;
+		string number = to_string(i);
+
+		// Set initialized to true -> the shader will process it
+		glUniform1i(glGetUniformLocation(programHandle, ("pointLights[" + number + "].initialized").c_str()), 1);
+
+		// Position
+		glUniform3f(glGetUniformLocation(programHandle, ("pointLights[" + number + "].position").c_str()),
+			pointLights[i].getPosition().x, pointLights[i].getPosition().y, pointLights[i].getPosition().z);
+
+		// Color
+		glUniform3f(glGetUniformLocation(programHandle, ("pointLights[" + number + "].ambient").c_str()),
+			pointLights[i].getAmbient().r, pointLights[i].getAmbient().g, pointLights[i].getAmbient().b);
+		glUniform3f(glGetUniformLocation(programHandle, ("pointLights[" + number + "].diffuse").c_str()),
+			pointLights[i].getDiffuse().r, pointLights[i].getDiffuse().g, pointLights[i].getDiffuse().b);
+		glUniform3f(glGetUniformLocation(programHandle, ("pointLights[" + number + "].specular").c_str()),
+			pointLights[i].getSpecular().r, pointLights[i].getSpecular().g, pointLights[i].getSpecular().b);
+
+		// Attenuation
+		glUniform1f(glGetUniformLocation(programHandle, ("pointLights[" + number + "].constant").c_str()),
+			pointLights[i].getConstant());
+		glUniform1f(glGetUniformLocation(programHandle, ("pointLights[" + number + "].linear").c_str()),
+			pointLights[i].getLinear());
+		glUniform1f(glGetUniformLocation(programHandle, ("pointLights[" + number + "].quadratic").c_str()),
+			pointLights[i].getQuadratic());
+	}
+
+	// Camera position
+	GLuint cameraPosLoc = glGetUniformLocation(programHandle, "cameraPos");
+	glUniform3f(cameraPosLoc, camera->getPosition().x, camera->getPosition().y, camera->getPosition().z);
+};
+
 
 void Shader::setUniform(string sName, float* fValues, int iCount)
 {
@@ -166,7 +225,7 @@ void Shader::setUniform(string sName, glm::vec2* vVectors, int iCount)
 	glUniform2fv(iLoc, iCount, (GLfloat*)vVectors);
 }
 
-void Shader::setUniform(string sName, const glm::vec2 vVector)
+void Shader::setUniform(string sName, const glm::vec2 &vVector)
 {
 	int iLoc = glGetUniformLocation(programHandle, sName.c_str());
 	glUniform2fv(iLoc, 1, (GLfloat*)&vVector);
@@ -178,7 +237,7 @@ void Shader::setUniform(string sName, glm::vec3* vVectors, int iCount)
 	glUniform3fv(iLoc, iCount, (GLfloat*)vVectors);
 }
 
-void Shader::setUniform(string sName, const glm::vec3 vVector)
+void Shader::setUniform(string sName, const glm::vec3 &vVector)
 {
 	int iLoc = glGetUniformLocation(programHandle, sName.c_str());
 	glUniform3fv(iLoc, 1, (GLfloat*)&vVector);
@@ -190,7 +249,7 @@ void Shader::setUniform(string sName, glm::vec4* vVectors, int iCount)
 	glUniform4fv(iLoc, iCount, (GLfloat*)vVectors);
 }
 
-void Shader::setUniform(string sName, const glm::vec4 vVector)
+void Shader::setUniform(string sName, const glm::vec4 &vVector)
 {
 	int iLoc = glGetUniformLocation(programHandle, sName.c_str());
 	glUniform4fv(iLoc, 1, (GLfloat*)&vVector);
@@ -204,7 +263,7 @@ void Shader::setUniform(string sName, glm::mat3* mMatrices, int iCount)
 	glUniformMatrix3fv(iLoc, iCount, false, (GLfloat*)mMatrices);
 }
 
-void Shader::setUniform(string sName, const glm::mat3 mMatrix)
+void Shader::setUniform(string sName, const glm::mat3 &mMatrix)
 {
 	int iLoc = glGetUniformLocation(programHandle, sName.c_str());
 	glUniformMatrix3fv(iLoc, 1, false, (GLfloat*)&mMatrix);
@@ -218,7 +277,7 @@ void Shader::setUniform(string sName, glm::mat4* mMatrices, int iCount)
 	glUniformMatrix4fv(iLoc, iCount, false, (GLfloat*)mMatrices);
 }
 
-void Shader::setUniform(string sName, const glm::mat4 mMatrix)
+void Shader::setUniform(std::string sName, const glm::mat4 &mMatrix)
 {
 	int iLoc = glGetUniformLocation(programHandle, sName.c_str());
 	glUniformMatrix4fv(iLoc, 1, false, (GLfloat*)&mMatrix);
@@ -232,20 +291,20 @@ void Shader::setUniform(string sName, int* iValues, int iCount)
 	glUniform1iv(iLoc, iCount, iValues);
 }
 
-void Shader::setUniform(string sName, const int iValue)
+void Shader::setUniform(string sName, const int &iValue)
 {
 	int iLoc = glGetUniformLocation(programHandle, sName.c_str());
 	glUniform1i(iLoc, iValue);
 }
 
-void Shader::SetModelAndNormalMatrix(string sModelMatrixName, string sNormalMatrixName, glm::mat4 mModelMatrix)
-{
-	setUniform(sModelMatrixName, mModelMatrix);
-	setUniform(sNormalMatrixName, glm::transpose(glm::inverse(mModelMatrix)));
-}
+//void Shader::SetModelAndNormalMatrix(string sModelMatrixName, string sNormalMatrixName, glm::mat4 mModelMatrix)
+//{
+//	setUniform(sModelMatrixName, mModelMatrix);
+//	setUniform(sNormalMatrixName, glm::transpose(glm::inverse(mModelMatrix)));
+//}
 
-void Shader::SetModelAndNormalMatrix(string sModelMatrixName, string sNormalMatrixName, glm::mat4* mModelMatrix)
-{
-	setUniform(sModelMatrixName, mModelMatrix);
-	setUniform(sNormalMatrixName, glm::transpose(glm::inverse(*mModelMatrix)));
-}
+//void Shader::SetModelAndNormalMatrix(string sModelMatrixName, string sNormalMatrixName, glm::mat4* mModelMatrix)
+//{
+//	setUniform(sModelMatrixName, mModelMatrix);
+//	setUniform(sNormalMatrixName, glm::transpose(glm::inverse(*mModelMatrix)));
+//}

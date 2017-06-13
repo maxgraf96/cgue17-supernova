@@ -3,6 +3,8 @@
 #include<glm/glm.hpp>
 #include <glew.h>
 #include <memory>
+#include "glm/gtc/matrix_transform.hpp"
+
 
 #include "../Shader.hpp"
 
@@ -30,20 +32,15 @@ namespace supernova {
 		class ParticleTF
 		{
 		public:
-			bool initalizeParticleSystem();
+			bool initializeParticleSystem();
 
 			void renderParticles();
 			void updateParticles(float timePassed);
 
 			void setGeneratorProperties(glm::vec3 a_vGenPosition, glm::vec3 a_vGenVelocityMin, glm::vec3 a_vGenVelocityMax, glm::vec3 a_vGenGravityVector,
-				glm::vec3 a_vGenColor, float a_fGenLifeMin, float a_fGenLifeMax, float a_fGenSize, float fEvery, int a_iNumToGenerate);
+				glm::vec3 a_vGenColor, float a_fGenLifeMin, float a_fGenLifeMax, float a_fGenSize, float fEvery, int a_iNumToGenerate, GLuint texture);
 
-			void clearAllParticles();
-			bool releaseParticleSystem();
-
-			int getNumParticles();
-
-			void setMatrices(glm::mat4* a_matProjection, glm::vec3 vEye, glm::vec3 vView, glm::vec3 vUpVector);
+			void setMatrices(glm::mat4* inputProjection, glm::mat4* view, glm::vec3 inputUpVector);
 
 			ParticleTF();
 
@@ -64,6 +61,7 @@ namespace supernova {
 			int numParticles;
 
 			glm::mat4 projection, view;
+			glm::mat4 myVP;
 			glm::vec3 quad1, quad2;
 
 			float elapsedTime;
@@ -79,8 +77,8 @@ namespace supernova {
 
 			int numToGenerate;
 
-			Shader* renderParticlesShader;
-			Shader* updateParticlesShader;
+			std::unique_ptr<Shader> renderParticlesShader;
+			std::unique_ptr<Shader> updateParticlesShader;
 		};
 	}
 }

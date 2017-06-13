@@ -160,10 +160,9 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="Lights\DirectionalLight.cpp" />
-    <ClCompile Include="Lights\PointLight.cpp" />
+    <ClCompile Include="Particles\ExtPTF.cpp" />
     <ClCompile Include="Materials\Metal.cpp" />
-    <ClCompile Include="Particles\ParticleTF.cpp" />
+    <ClCompile Include="Particles\shaders.cpp" />
     <ClCompile Include="Scene\Camera.cpp" />
     <ClCompile Include="Scene\Cube.cpp" />
     <ClCompile Include="main.cpp" />
@@ -179,9 +178,11 @@
     <ClCompile Include="Textures\TextureLoader.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="Lights\Light.cpp" />
+    <ClInclude Include="Particles\common_header.h" />
+    <ClInclude Include="Particles\ExtPTF.hpp" />
+    <ClInclude Include="Lights\Light.hpp" />
     <ClInclude Include="Materials\Material.hpp" />
-    <ClInclude Include="Particles\ParticleTF.hpp" />
+    <ClInclude Include="Particles\shaders.h" />
     <ClInclude Include="Scene\Camera.hpp" />
     <ClInclude Include="Scene\Cube.hpp" />
     <ClInclude Include="Scene\LightCube.hpp" />
@@ -198,10 +199,19 @@
   <ItemGroup>
     <None Include="Shader\basic.frag" />
     <None Include="Shader\basic.vert" />
+    <None Include="Shader\ExtPTF\particles_render.frag" />
+    <None Include="Shader\ExtPTF\particles_render.geom" />
+    <None Include="Shader\ExtPTF\particles_render.vert" />
+    <None Include="Shader\ExtPTF\particles_update.frag" />
+    <None Include="Shader\ExtPTF\particles_update.geom" />
+    <None Include="Shader\ExtPTF\particles_update.vert" />
     <None Include="Shader\hud.frag" />
     <None Include="Shader\hud.vert" />
     <None Include="Shader\lightCube.frag" />
     <None Include="Shader\lightCube.vert" />
+    <None Include="Shader\particleRender.frag" />
+    <None Include="Shader\particleRender.geom" />
+    <None Include="Shader\particleRender.vert" />
     <None Include="Shader\particleUpdate.geom" />
     <None Include="Shader\particleUpdate.vert" />
     <None Include="Shader\skybox.frag" />

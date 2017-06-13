@@ -28,12 +28,6 @@ Model::~Model() {
 
 }
 
-void Model::update(float time_delta, int pressed) {
-	if (pressed == 1) {
-		modelMatrix = glm::rotate(modelMatrix, 0.07f, glm::vec3(0, 1, 0));
-	}
-}
-
 void Model::draw(Shader* shader) {
 	for (GLuint i = 0; i < this->meshes.size(); i++) {
 		this->meshes[i].draw(shader);
@@ -44,7 +38,7 @@ void Model::draw() {};
 
 void Model::loadModel(string const &path) {
 	Assimp::Importer import;
-	const aiScene* scene = import.ReadFile(path, aiProcess_Triangulate | aiProcess_FlipUVs);
+	const aiScene* scene = import.ReadFile(path, aiProcess_Triangulate);
 
 	/* Check if scene and root node are not null */
 	if (!scene || scene->mFlags == AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode) {

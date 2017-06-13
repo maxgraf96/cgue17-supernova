@@ -65,16 +65,16 @@ LightCube::~LightCube() {
 
 void LightCube::update(float time_delta, int pressed) {
 	if (pressed == 1) {
-		modelMatrix = glm::translate(modelMatrix, glm::vec3(0, 0, 0.1f));
+		modelMatrix = glm::translate(modelMatrix, glm::vec3(0, 0, 0.3f));
 	}
 	else if (pressed == -1) {
-		modelMatrix = glm::translate(modelMatrix, glm::vec3(0, 0, -0.1f));
+		modelMatrix = glm::translate(modelMatrix, glm::vec3(0, 0, -0.3f));
 	}
 	else if (pressed == -2) {
-		modelMatrix = glm::translate(modelMatrix, glm::vec3(-0.1f, 0, 0));
+		modelMatrix = glm::translate(modelMatrix, glm::vec3(-0.3f, 0, 0));
 	}
 	else if (pressed == -3) {
-		modelMatrix = glm::translate(modelMatrix, glm::vec3(0.1f, 0, 0));
+		modelMatrix = glm::translate(modelMatrix, glm::vec3(0.3f, 0, 0));
 	}
 }
 

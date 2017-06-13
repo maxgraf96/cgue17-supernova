@@ -24,7 +24,9 @@
 #include "Shader.hpp"
 #include "Scene\PhysXCube.hpp"
 #include "CollisionDetector.hpp"
-
+//#include "Particles\ParticleTF.hpp"
+#include "Particles\ExtPTF.hpp"
+#include "Lights\Light.hpp"
 
 /* Freetype is used for the HUD -> to draw 2D characters to screen */
 #include <ft2build.h>
@@ -60,9 +62,9 @@ std::unique_ptr<MovingCube> midCube;
 std::unique_ptr<MovingCube> finishCube;
 std::unique_ptr<LightCube> lightCube;
 std::unique_ptr<TextQuad> textQuad;
-std::unique_ptr<Model> spaceship;
+std::unique_ptr<Spaceship> spaceship;
 std::unique_ptr<PhysXCube> physXCube;
-std::unique_ptr<Model> sun;
+std::unique_ptr<Sun> sun;
 
 // Camera
 std::unique_ptr<Camera> camera;
@@ -72,6 +74,7 @@ std::unique_ptr<TextureLoader> textureLoader = std::make_unique<TextureLoader>()
 
 // Textures
 GLuint cubeMapTexture;
+GLuint particle;
 
 // FreeType
 FT_Library ft;
@@ -91,6 +94,11 @@ PxDefaultAllocator gAllocator;
 float gAccumulator = 0.0f;
 float gStepSize = 1.0f / 60.0f;
 
+/* one vector that contains all point light sources. This vector is then passed to all shaders of objects that are to be lit. lit. */
+std::vector<PointLight> pointLights;
+// The one directional light we have is the supernova
+std::unique_ptr<DirectionalLight> supernovaDirLight;
+
 //camera
 glm::vec3 cameraPos;
 glm::vec3 cameraFront;
@@ -102,6 +110,8 @@ glm::mat4 projection;
 int width = 1376;
 int height = 768;
 bool fullscreen = false;
+
+float time_delta = 0;
 
 void main(int argc, char** argv) {
 
@@ -186,7 +196,7 @@ void main(int argc, char** argv) {
 
 		//compute frame time delta
 		auto time_new = glfwGetTime();
-		auto time_delta = (float)(time_new - time);
+		time_delta = (float)(time_new - time);
 		time = time_new;
 
 		/* Camera position console output */
@@ -317,7 +327,7 @@ void init(GLFWwindow* window) {
 	glDepthFunc(GL_LESS);
 	glfwSetWindowTitle(window, "Supernova");
 
-	glClearColor(0.35f, 0.36f, 0.43f, 0.3f);
+	//glClearColor(0.35f, 0.36f, 0.43f, 0.3f);
 	glViewport(0, 0, width, height);
 
 	// camera
@@ -335,7 +345,7 @@ void init(GLFWwindow* window) {
 	hudShader = std::make_unique<Shader>("Shader/hud.vert", "Shader/hud.frag", true);
 	textureShader = std::make_unique<Shader>("Shader/textureShader.vert", "Shader/textureShader.frag", true);// Shader for textured objects
 
-	// Zelda
+	// Link shaders
 	shader->link();
 	skyboxShader->link();
 	lightCubeShader->link();
@@ -344,15 +354,24 @@ void init(GLFWwindow* window) {
 
 	/* Step 2: Create scene objects and assign shaders */
 	skybox = std::make_unique<Skybox>(glm::mat4(1.0f), skyboxShader.get(), cubeMapTexture);
-	lightCube = std::make_unique<LightCube>(glm::mat4(1.0f), lightCubeShader.get());
 	startCube = std::make_unique<MovingCube>(glm::mat4(1.0f), shader.get(), camera.get(), new Metal(vec3(0.905f, 0.298f, 0.235f)), 5.0f);
 	midCube = std::make_unique<MovingCube>(glm::mat4(1.0f), shader.get(), camera.get(), new Metal(vec3(0.905f, 0.298f, 0.235f)), 15.0f);
 	finishCube = std::make_unique<MovingCube>(glm::mat4(1.0f), shader.get(), camera.get(), new Metal(vec3(0.905f, 0.298f, 0.235f)), 25.0f);
-	//string spaceshipDir = "Models/nanosuit/nanosuit.obj";
-	string spaceshipDir = "Models/spaceship/spaceship.obj";
-	spaceship = std::make_unique<Model>(glm::mat4(1.0f), spaceshipDir.c_str());
-	sun = std::make_unique<Model>(glm::mat4(1.0f), "Models/icosphere/icosphere.obj");
+	spaceship = std::make_unique<Spaceship>(glm::mat4(1.0f), "Models/spaceship/spaceship.obj");
+
+	/* Create lights */
+	sun = std::make_unique<Sun>(glm::mat4(1.0f), "Models/mysun/sun.obj");
+	vec3 sunLightColor = vec3(1.0f);
+	supernovaDirLight = std::make_unique<DirectionalLight>(sunLightColor, sunLightColor, sunLightColor, vec3(0, 0, 1));
+
+	vec3 lightCubeColor = vec3(1.0f, 0.5f, 0.8f);
+	lightCube = std::make_unique<LightCube>(glm::mat4(1.0f), lightCubeShader.get());
+	PointLight cubeLight = PointLight(lightCubeColor, lightCubeColor, lightCubeColor, lightCube->getPosition(),
+		1.0f, 0.9f, 0.2f);
+	cubeLight.setInitialized(true);
+	pointLights.push_back(cubeLight);
 	
+
 	//Create PhysXcube:
 	PxReal density = 1.0f;
 	PxTransform transform(PxVec3(0.0f, 10.0f, 0.0f), PxQuat(PxIDENTITY::PxIdentity));
@@ -369,15 +388,24 @@ void init(GLFWwindow* window) {
 	PxRigidActor* box = actor;
 
 	physXCube = std::make_unique<PhysXCube>(glm::mat4(1.0f), box, shader.get(), new Metal(vec3(0.905f, 0.298f, 0.235f)));
-
+	
+	// HUD
 	textQuad = std::make_unique<TextQuad>(glm::mat4(1.0f), hudShader.get());
 
-	/* Step 3: Use those shaders */
-	shader->useShader();
-	lightCubeShader->useShader();
-	textureShader->useShader();
-	skyboxShader->useShader();
-	hudShader->useShader();
+	// Particle system(s)
+	spaceship->particleSystem.InitalizeParticleSystem();
+	spaceship->particleSystem.SetGeneratorProperties(
+		glm::vec3(0.0f, 0.0f, 0.0f), // Where the particles are generated
+		glm::vec3(-3, 0, -3), // Minimal velocity
+		glm::vec3(3, 5, 3), // Maximal velocity
+		glm::vec3(0, -5, 0), // Gravity force applied to particles
+		glm::vec3(0.92f, 0.08f, 0.08f), // Color (light blue)
+		0.3f, // Minimum lifetime in seconds
+		1.5f, // Maximum lifetime in seconds
+		0.5f, // Rendered size
+		0.1f, // Spawn every 0.05 seconds
+		20// And spawn 30 particles);
+		);
 
 	int width;
 	int height;
@@ -398,101 +426,107 @@ void update(float time_delta, int pressed) {
 	spaceship->update(time_delta, pressed);
 
 	textQuad->update(time_delta, pressed);
+
 }
 
 void draw() {
 	//generate view projection matrix
 	auto view_projection = projection * view;
 
-	/*-------------------- Textured objects --------------------- */
-
-	// Spaceship
-	/*textureShader->useShader();
-	auto view_projection_location_spaceship = glGetUniformLocation(textureShader->programHandle, "proj");
-	glUniformMatrix4fv(view_projection_location_spaceship, 1, GL_FALSE, glm::value_ptr(view_projection));
-	auto& model_spaceship = spaceship->modelMatrix;
-	auto model_location_spaceship = glGetUniformLocation(textureShader->programHandle, "model");
-	glUniformMatrix4fv(model_location_spaceship, 1, GL_FALSE, glm::value_ptr(model_spaceship));
-	spaceship->draw(textureShader.get());*/
-
+	/*-------------------- Get light sources --------------------- */
 	/* Light Cube */
 	lightCubeShader->useShader();
 	auto view_projection_location_light_cube = glGetUniformLocation(lightCubeShader->programHandle, "proj");
 	glUniformMatrix4fv(view_projection_location_light_cube, 1, GL_FALSE, glm::value_ptr(view_projection));
 
 	// make light cube a little bit smaller and put it schräg above other cube
-	auto& model_light_cube = glm::scale(lightCube->modelMatrix, glm::vec3(0.3f));
+	auto& model_light_cube = glm::scale(lightCube->modelMatrix, glm::vec3(0.4f));
 	model_light_cube = glm::translate(model_light_cube, glm::vec3(2.5f, -5.5f, 1.5f));
 	auto model_location_light_cube = glGetUniformLocation(lightCubeShader->programHandle, "model");
 	glUniformMatrix4fv(model_location_light_cube, 1, GL_FALSE, glm::value_ptr(model_light_cube));
 	lightCube->draw();
 
+	// view(camera) info
+	GLint cameraPosLoc;
+
+	// Convert light vector to array to pass it to shaders
+	PointLight point_lights_array[20];
+	std::copy(pointLights.begin(), pointLights.end(), point_lights_array);
+
+	/*-------------------- Textured objects --------------------- */
+	// Spaceship
+	textureShader->useShader();
+	auto view_projection_location_spaceship = glGetUniformLocation(textureShader->programHandle, "proj");
+	glUniformMatrix4fv(view_projection_location_spaceship, 1, GL_FALSE, glm::value_ptr(view_projection));
+	auto& model_spaceship = spaceship->modelMatrix;
+	auto model_location_spaceship = glGetUniformLocation(textureShader->programHandle, "model");
+	glUniformMatrix4fv(model_location_spaceship, 1, GL_FALSE, glm::value_ptr(model_spaceship));
+	
+	// SET ALL LIGHT SOURCES WITH THIS LIMITED EDITION ONE LINER
+	textureShader->setLightSources(*supernovaDirLight.get(), point_lights_array, camera.get());
+
+	spaceship->draw(textureShader.get());
+
 	// Sun
-	/*shader->useShader();
-	auto view_projection_location_sun = glGetUniformLocation(shader->programHandle, "proj");
+	textureShader->useShader();
+	auto view_projection_location_sun = glGetUniformLocation(textureShader->programHandle, "proj");
 	glUniformMatrix4fv(view_projection_location_sun, 1, GL_FALSE, glm::value_ptr(view_projection));
 	auto& model_sun = sun->modelMatrix;
-	auto model_location_sun = glGetUniformLocation(shader->programHandle, "model");
+	auto model_location_sun = glGetUniformLocation(textureShader->programHandle, "model");
 	glUniformMatrix4fv(model_location_sun, 1, GL_FALSE, glm::value_ptr(model_sun));
-	sun->draw(shader.get());*/
+	sun->draw(textureShader.get());
 
-	/* Cube */
-	shader->useShader();
-	auto view_projection_location_cube = glGetUniformLocation(shader->programHandle, "proj");
-	glUniformMatrix4fv(view_projection_location_cube, 1, GL_FALSE, glm::value_ptr(view_projection));
+	///* Cube */
+	//shader->useShader();
+	//auto view_projection_location_cube = glGetUniformLocation(shader->programHandle, "proj");
+	//glUniformMatrix4fv(view_projection_location_cube, 1, GL_FALSE, glm::value_ptr(view_projection));
 
-	// view(camera) info
-	GLint cameraPosLoc = glGetUniformLocation(shader->programHandle, "cameraPos");
-	glUniform3f(cameraPosLoc, cameraPos.x, cameraPos.y, cameraPos.z);
-	// Light position and properties (currently only one lightsource)
-	glm::vec3 lightPositionInWorldSpace = glm::vec3(model_light_cube[3].x, model_light_cube[3].y,
-		model_light_cube[3].z);
-	GLint lightPosLoc = glGetUniformLocation(shader->programHandle, "light.position");
-	GLint lightAmbientLoc = glGetUniformLocation(shader->programHandle, "light.ambient");
-	GLint lightDiffuseLoc = glGetUniformLocation(shader->programHandle, "light.diffuse");
-	GLint lightSpecularLoc = glGetUniformLocation(shader->programHandle, "light.specular");
+	//lightPosLoc = glGetUniformLocation(shader->programHandle, "light.position");
+	//lightAmbientLoc = glGetUniformLocation(shader->programHandle, "light.ambient");
+	//lightDiffuseLoc = glGetUniformLocation(shader->programHandle, "light.diffuse");
+	//lightSpecularLoc = glGetUniformLocation(shader->programHandle, "light.specular");
 
-	glUniform3f(lightPosLoc, lightPositionInWorldSpace.x, lightPositionInWorldSpace.y, lightPositionInWorldSpace.z);
-	glUniform3f(lightAmbientLoc, 0.2f, 0.2f, 0.2f);
-	glUniform3f(lightDiffuseLoc, 0.5f, 0.5f, 0.5f);
-	glUniform3f(lightSpecularLoc, 1.0f, 1.0f, 1.0f);
+	//glUniform3f(lightPosLoc, lightPositionInWorldSpace.x, lightPositionInWorldSpace.y, lightPositionInWorldSpace.z);
+	//glUniform3f(lightAmbientLoc, 0.2f, 0.2f, 0.2f);
+	//glUniform3f(lightDiffuseLoc, 0.5f, 0.5f, 0.5f);
+	//glUniform3f(lightSpecularLoc, 1.0f, 1.0f, 1.0f);
 
-	/* Start Cube */
-	view_projection_location_cube = glGetUniformLocation(shader->programHandle, "proj");
-	glUniformMatrix4fv(view_projection_location_cube, 1, GL_FALSE, glm::value_ptr(view_projection));
+	///* Start Cube */
+	//view_projection_location_cube = glGetUniformLocation(shader->programHandle, "proj");
+	//glUniformMatrix4fv(view_projection_location_cube, 1, GL_FALSE, glm::value_ptr(view_projection));
 
-	auto& model_moving_cube = startCube->modelMatrix;
-	auto model_location_moving_cube = glGetUniformLocation(shader->programHandle, "model");
-	glUniformMatrix4fv(model_location_moving_cube, 1, GL_FALSE, glm::value_ptr(model_moving_cube));
+	//auto& model_moving_cube = startCube->modelMatrix;
+	//auto model_location_moving_cube = glGetUniformLocation(shader->programHandle, "model");
+	//glUniformMatrix4fv(model_location_moving_cube, 1, GL_FALSE, glm::value_ptr(model_moving_cube));
 
-	// view(camera) info
-	cameraPosLoc = glGetUniformLocation(shader->programHandle, "cameraPos");
-	glUniform3f(cameraPosLoc, cameraPos.x, cameraPos.y, cameraPos.z);
-	// Light position and properties (currently only one lightsource)
-	lightPosLoc = glGetUniformLocation(shader->programHandle, "light.position");
-	lightAmbientLoc = glGetUniformLocation(shader->programHandle, "light.ambient");
-	lightDiffuseLoc = glGetUniformLocation(shader->programHandle, "light.diffuse");
-	lightSpecularLoc = glGetUniformLocation(shader->programHandle, "light.specular");
+	//// view(camera) info
+	//cameraPosLoc = glGetUniformLocation(shader->programHandle, "cameraPos");
+	//glUniform3f(cameraPosLoc, cameraPos.x, cameraPos.y, cameraPos.z);
+	//// Light position and properties (currently only one lightsource)
+	//lightPosLoc = glGetUniformLocation(shader->programHandle, "light.position");
+	//lightAmbientLoc = glGetUniformLocation(shader->programHandle, "light.ambient");
+	//lightDiffuseLoc = glGetUniformLocation(shader->programHandle, "light.diffuse");
+	//lightSpecularLoc = glGetUniformLocation(shader->programHandle, "light.specular");
 
-	glUniform3f(lightPosLoc, lightPositionInWorldSpace.x, lightPositionInWorldSpace.y, lightPositionInWorldSpace.z);
-	glUniform3f(lightAmbientLoc, 0.2f, 0.2f, 0.2f);
-	glUniform3f(lightDiffuseLoc, 0.5f, 0.5f, 0.5f);
-	glUniform3f(lightSpecularLoc, 1.0f, 1.0f, 1.0f);
-	startCube->draw();
+	//glUniform3f(lightPosLoc, lightPositionInWorldSpace.x, lightPositionInWorldSpace.y, lightPositionInWorldSpace.z);
+	//glUniform3f(lightAmbientLoc, 0.2f, 0.2f, 0.2f);
+	//glUniform3f(lightDiffuseLoc, 0.5f, 0.5f, 0.5f);
+	//glUniform3f(lightSpecularLoc, 1.0f, 1.0f, 1.0f);
+	//startCube->draw();
 
-	// Mid Cube
-	auto& model_mid_cube = midCube->modelMatrix;
-	auto model_location_mid_cube = glGetUniformLocation(shader->programHandle, "model");
-	glUniformMatrix4fv(model_location_moving_cube, 1, GL_FALSE, glm::value_ptr(model_mid_cube));
-	midCube->draw();
+	//// Mid Cube
+	//auto& model_mid_cube = midCube->modelMatrix;
+	//auto model_location_mid_cube = glGetUniformLocation(shader->programHandle, "model");
+	//glUniformMatrix4fv(model_location_moving_cube, 1, GL_FALSE, glm::value_ptr(model_mid_cube));
+	//midCube->draw();
 
-	// Finish Cube
-	auto& model_finish_cube = finishCube->modelMatrix;
-	auto model_location_finish_cube = glGetUniformLocation(shader->programHandle, "model");
-	glUniformMatrix4fv(model_location_moving_cube, 1, GL_FALSE, glm::value_ptr(model_finish_cube));
-	finishCube->draw();
+	//// Finish Cube
+	//auto& model_finish_cube = finishCube->modelMatrix;
+	//auto model_location_finish_cube = glGetUniformLocation(shader->programHandle, "model");
+	//glUniformMatrix4fv(model_location_moving_cube, 1, GL_FALSE, glm::value_ptr(model_finish_cube));
+	//finishCube->draw();
 
-	//PhysXCube:
+	PhysXCube:
 	PxRigidActor* box = physXCube->actor;
 	PxU32 nShapes = box->getNbShapes();
 	PxShape** shapes = new PxShape*[nShapes];
@@ -516,7 +550,6 @@ void draw() {
 	}
 	delete[] shapes;
 
-
 	/* Skybox - ALWAYS DRAW LAST!!!!!!!!!!!!!!!!!!!!!!!!!!!!!11elf
 	* Only 2d objects are allowed to be drawn after skybox
 	/* Change depth function so depth test passes when values are equal to depth buffers content */
@@ -535,33 +568,42 @@ void draw() {
 		1, GL_FALSE, glm::value_ptr(view_projection));
 
 	skybox->draw();
-
 	/* Reset depth function */
 	glDepthFunc(GL_LESS);
 	glDepthMask(GL_TRUE);
 
+	// Particle system(s)
+	glBindTexture(GL_TEXTURE_2D, particle);
+
+	spaceship->particleSystem.SetMatrices(&projection, camera->getPosition(), camera->getPosition() + camera->getFront(), camera->getUp());
+	spaceship->particleSystem.UpdateParticles(time_delta);
+	spaceship->particleSystem.RenderParticles();
+
+
 	/* HUD */
-	glm::mat4 hudProjectionMat = glm::ortho(0.0f, static_cast<GLfloat>(width), 0.0f, static_cast<GLfloat>(height));
-	hudShader->useShader();
-	glUniformMatrix4fv(glGetUniformLocation(hudShader->programHandle, "projection"), 1, GL_FALSE, glm::value_ptr(hudProjectionMat));
-	/* If user is outside boundary(40x40x70) display warning */
-	if (camera.get()->getPosition().x < -20 
-		|| camera.get()->getPosition().x > 20 
-		|| camera.get()->getPosition().y < -20
-		|| camera.get()->getPosition().y > 20
-		|| camera.get()->getPosition().z < -10
-		|| camera.get()->getPosition().z > 60) {
-			renderText("Danger Zone.", 550.0f, 380.0f, 1.0f, glm::vec3(1.0f, 1.0f, 1.0f), characters);
-	}
-	if (camera.get()->getPosition().z > 25) {
-		renderText("You win!", 550.0f, 380.0f, 1.0f, glm::vec3(1.0f, 1.0f, 1.0f), characters);
-	}
+	//glm::mat4 hudProjectionMat = glm::ortho(0.0f, static_cast<GLfloat>(width), 0.0f, static_cast<GLfloat>(height));
+	//hudShader->useShader();
+	//glUniformMatrix4fv(glGetUniformLocation(hudShader->programHandle, "projection"), 1, GL_FALSE, glm::value_ptr(hudProjectionMat));
+	///* If user is outside boundary(40x40x70) display warning */
+	//if (camera.get()->getPosition().x < -20 
+	//	|| camera.get()->getPosition().x > 20 
+	//	|| camera.get()->getPosition().y < -20
+	//	|| camera.get()->getPosition().y > 20
+	//	|| camera.get()->getPosition().z < -10
+	//	|| camera.get()->getPosition().z > 60) {
+	//		renderText("Danger Zone.", 550.0f, 380.0f, 1.0f, glm::vec3(1.0f, 1.0f, 1.0f), characters);
+	//}
+	//if (camera.get()->getPosition().z > 25) {
+	//	renderText("You win!", 550.0f, 380.0f, 1.0f, glm::vec3(1.0f, 1.0f, 1.0f), characters);
+	//}
+
 
 }
 
 void cleanup() {
 	shader.reset(nullptr);
 	/* Light Cube */
+	//lightCube->particleSystem.~ParticleTF();
 	lightCube.reset(nullptr);
 	lightCubeShader.reset(nullptr);
 	/* Moving Cube */
@@ -579,6 +621,8 @@ void cleanup() {
 	/* Spaceship */
 	textureShader.reset(nullptr);
 	spaceship.reset(nullptr);
+	/* PhysX Cube */
+	physXCube.reset(nullptr);
 }
 
 void initTextures() {
@@ -592,6 +636,9 @@ void initTextures() {
 	faces.push_back("Textures/Skybox/purplenebula_bk.png");
 	faces.push_back("Textures/Skybox/purplenebula_ft.png");
 	cubeMapTexture = textureLoader.get()->loadCubemap(faces);
+
+	// Load particle
+	particle = textureLoader->load("Textures/particle.bmp");
 }
 
 /* Called in init() - Loads a font and stores its rendered characters in a map */

@@ -1,10 +1,12 @@
 #include "ParticleTF.hpp"
+#include <iostream>
 
 
 using namespace supernova;
 using namespace supernova::particles;
 
 ParticleTF::ParticleTF()
+	: initialized(false), curReadBuffer(0)
 {
 }
 
@@ -20,7 +22,7 @@ float grandf(float min, float add)
 	return min + add*random;
 }
 
-bool ParticleTF::initalizeParticleSystem() {
+bool ParticleTF::initializeParticleSystem() {
 	if(initialized)return false;
 
 	const char* varyings[NUM_PARTICLE_ATTRIBUTES] =
@@ -34,15 +36,15 @@ bool ParticleTF::initalizeParticleSystem() {
 	};
 
 	// Updating program
-	updateParticlesShader = std::make_unique<Shader>("../Shader/particleUpdate.vert", "../Shader/particleUpdate.geom", false).get();
-
+	updateParticlesShader = std::make_unique<Shader>("Shader/particleUpdate.vert", "Shader/particleUpdate.geom", false);
 	for (int i = 0; i < NUM_PARTICLE_ATTRIBUTES; i++) {
-		glTransformFeedbackVaryings(updateParticlesShader->programHandle, NUM_PARTICLE_ATTRIBUTES, varyings, GL_INTERLEAVED_ATTRIBS);
+		glTransformFeedbackVaryings(updateParticlesShader->programHandle, 6, varyings, GL_INTERLEAVED_ATTRIBS);
 	}
 	updateParticlesShader->link();
 
 	// Rendering program
-	renderParticlesShader = std::make_unique<Shader>("../Shader/particleRender.vert", "../Shader/particleRender.frag", "../Shader/particleRender.geom").get();
+	std::string geom = "Shader/particleRender.geom";
+	renderParticlesShader = std::make_unique<Shader>("Shader/particleRender.vert", "Shader/particleRender.frag", geom);
 	renderParticlesShader->link();
 
 	glGenTransformFeedbacks(1, &transformFeedbackBuffer);
@@ -72,6 +74,7 @@ bool ParticleTF::initalizeParticleSystem() {
 		glVertexAttribPointer(4, 1, GL_FLOAT, GL_FALSE, sizeof(Particle), (const GLvoid*)40); // Size
 		glVertexAttribPointer(5, 1, GL_INT, GL_FALSE, sizeof(Particle), (const GLvoid*)44); // Type
 	}
+
 	curReadBuffer = 0;
 	numParticles = 1;
 
@@ -84,6 +87,8 @@ void ParticleTF::updateParticles(float timePassed) {
 	if(!initialized)return;
 
 	updateParticlesShader->useShader();
+
+	updateParticlesShader->setUniform("myVPVert", myVP);
 
 	updateParticlesShader->setUniform("timePassed", timePassed);
 	updateParticlesShader->setUniform("genPosition", genPosition);
@@ -130,4 +135,69 @@ void ParticleTF::updateParticles(float timePassed) {
 	curReadBuffer = 1 - curReadBuffer;
 
 	glBindTransformFeedback(GL_TRANSFORM_FEEDBACK, 0);
+}
+
+void ParticleTF::renderParticles()
+{
+	if (!initialized)return;
+
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE);
+	glDepthMask(0);
+
+	glDisable(GL_RASTERIZER_DISCARD);
+	renderParticlesShader->useShader();
+	renderParticlesShader->setUniform("matrices->proj", projection);
+	renderParticlesShader->setUniform("matrices->view", view);
+	renderParticlesShader->setUniform("matrices->myVP", myVP);
+	renderParticlesShader->setUniform("quad1", &quad1);
+	renderParticlesShader->setUniform("quad2", &quad2);
+	glUniform1i(glGetUniformLocation(renderParticlesShader->programHandle, "sampler"), 0);
+
+	glBindVertexArray(vao[curReadBuffer]);
+	glDisableVertexAttribArray(1); // Disable velocity, because we don't need it for rendering
+
+	glDrawArrays(GL_POINTS, 0, numParticles);
+
+	glDepthMask(1);
+	glDisable(GL_BLEND);
+}
+
+void ParticleTF::setMatrices(glm::mat4* inputProjection, glm::mat4* _view, glm::vec3 inputUpVector)
+{
+	projection = *inputProjection;
+	glm::vec3 vView;
+	glm::mat4 dView = *_view;
+	view = dView;
+	vView.x = dView[0][2];
+	vView.y = dView[1][2];
+	vView.z = dView[2][2];
+
+	vView = glm::normalize(vView);
+
+	quad1 = glm::cross(vView, inputUpVector);
+	quad1 = glm::normalize(quad1);
+	quad2 = glm::cross(vView, quad1);
+	quad2 = glm::normalize(quad2);
+}
+
+void ParticleTF::setGeneratorProperties(glm::vec3 a_vGenPosition, glm::vec3 a_vGenVelocityMin, glm::vec3 a_vGenVelocityMax, glm::vec3 a_vGenGravityVector, 
+	glm::vec3 a_vGenColor, float a_fGenLifeMin, float a_fGenLifeMax, float a_fGenSize, float fEvery, int a_iNumToGenerate, GLuint _texture)
+{
+	genPosition = a_vGenPosition;
+	genVelocityMin = a_vGenVelocityMin;
+	genVelocityRange = a_vGenVelocityMax - a_vGenVelocityMin;
+
+	genGravityVector = a_vGenGravityVector;
+	genColor = a_vGenColor;
+	genSize = a_fGenSize;
+
+	genLifeMin = a_fGenLifeMin;
+	genLifeRange = a_fGenLifeMax - a_fGenLifeMin;
+
+	nextGenerationTime = fEvery;
+	elapsedTime = 0.8f;
+
+	numToGenerate = a_iNumToGenerate;
+	texture = _texture;
 }

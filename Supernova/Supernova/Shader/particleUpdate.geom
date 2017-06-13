@@ -1,4 +1,4 @@
-#version 330 
+#version 430 
 
 layout(points) in; 
 layout(points) out; 
@@ -30,7 +30,7 @@ uniform vec3 genVelocityRange;
 uniform vec3 genColor; 
 uniform float genSize;  
 
-uniform float genLifeMin, fGenLifeRange; // Life of new particle - from min to (min+range)
+uniform float genLifeMin, genLifeRange; // Life of new particle - from min to (min+range)
 uniform float timePassed; // Time passed since last frame
 
 uniform vec3 randomSeed; // Seed number for our random number function
@@ -68,7 +68,7 @@ void main()
      
   if(typeOut == 0) 
   { 
-    EmitVertex(); 
+    EmitVertex();
     EndPrimitive(); 
      
     for(int i = 0; i < numToGenerate; i++) 

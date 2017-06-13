@@ -17,6 +17,13 @@ namespace supernova {
 			glm::vec3& getPosition(){
 				return position;
 			}
+			glm::vec3& getFront() {
+				return front;
+			}
+			glm::vec3& getUp() {
+				return up;
+			}
+
 
 		private:
 			//Camera Attributes
