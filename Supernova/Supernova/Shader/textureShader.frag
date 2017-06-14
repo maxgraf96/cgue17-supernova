@@ -4,7 +4,8 @@ in vec3 fragNormal;
 in vec3 fragPos;
 in vec2 texCoords; 
 
-out vec4 fragColor;
+layout (location = 0) out vec4 fragColor;
+layout (location = 1) out vec4 brightColor;
 
 uniform struct Material {
 	sampler2D texture_diffuse;
@@ -97,4 +98,13 @@ void main() {
 	}
 
 	fragColor = vec4(result, 1.0f);
+
+	/*calculate bright areas*/
+	float brightness = dot(fragColor.rgb, vec3(0.2126, 0.7152, 0.0722));
+	if (brightness > 0.5) {
+		brightColor = vec4(fragColor.rgb, 1.0);
+	}
+	else {
+		brightColor = vec4(0.0, 0.0, 0.0, 1.0);
+	}
 }

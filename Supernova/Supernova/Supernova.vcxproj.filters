@@ -139,6 +139,10 @@
     <None Include="Shader\ExtPTF\particles_update.frag" />
     <None Include="Shader\ExtPTF\particles_update.geom" />
     <None Include="Shader\ExtPTF\particles_update.vert" />
+    <None Include="Shader\screenShader.vert" />
+    <None Include="Shader\screenShader.frag" />
+    <None Include="Shader\blur.vert" />
+    <None Include="Shader\blur.frag" />
   </ItemGroup>
   <ItemGroup>
     <Image Include="Textures\Skybox\purplenebula_bk.png">

@@ -54,6 +54,8 @@ std::unique_ptr<Shader> skyboxShader;
 std::unique_ptr<Shader> lightCubeShader;
 std::unique_ptr<Shader> hudShader;
 std::unique_ptr<Shader> textureShader;
+std::unique_ptr<Shader> screenShader;
+std::unique_ptr<Shader> blurShader;
 
 // Game objects
 std::unique_ptr<Skybox> skybox;
@@ -75,6 +77,15 @@ std::unique_ptr<TextureLoader> textureLoader = std::make_unique<TextureLoader>()
 // Textures
 GLuint cubeMapTexture;
 GLuint particle;
+
+//Framebuffer
+GLuint framebuffer;
+GLuint texColorBuffer[2];
+GLuint depthBuffer;
+
+//Pingpong Framebuffer
+GLuint pingpongFBO[2];
+GLuint pingpongBuffer[2];
 
 // FreeType
 FT_Library ft;
@@ -176,6 +187,28 @@ void main(int argc, char** argv) {
 	initTextures();
 	init(window);
 
+	//maybe put in init function!
+	float quadVertices[] = {
+		-1.0f,  1.0f,  0.0f,  1.0f,
+		-1.0f, -1.0f,  0.0f,  0.0f,
+		 1.0f, -1.0f,  1.0f,  0.0f,
+
+		-1.0f,  1.0f,  0.0f,  1.0f,
+		 1.0f, -1.0f,  1.0f,  0.0f,
+		 1.0f,  1.0f,  1.0f,  1.0f
+	};
+
+	GLuint quadVAO, quadVBO;
+	glGenVertexArrays(1, &quadVAO);
+	glGenBuffers(1, &quadVBO);
+	glBindVertexArray(quadVAO);
+	glBindBuffer(GL_ARRAY_BUFFER, quadVBO);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(quadVertices), &quadVertices, GL_STATIC_DRAW);
+	glEnableVertexAttribArray(0);
+	glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0);
+	glEnableVertexAttribArray(1);
+	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(2 * sizeof(float)));
+
 	glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
 	//used to get the first position of the mouse!
@@ -267,8 +300,57 @@ void main(int argc, char** argv) {
 		//simulate PhysX (do somewhere else?)
 		stepPhysX(time_delta);
 
-		//draw game components
+		/*****START RENDER*****/
+		//based on the framebuffers tutorial from "Learn OpenGL" (https://learnopengl.com/#!Advanced-OpenGL/Framebuffers)
+
+		//first pass, draw to framebuffer
+		//glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+		glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
+		glEnable(GL_DEPTH_TEST); //could cause trouble
+		glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 		draw();
+		//glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+		
+		//second pass
+		//Blur bright colors using pingpong framebuffers
+		bool horizontal = true;
+		bool first_iter = true;
+		int amount = 10;
+		blurShader->useShader();
+
+		for (GLuint i = 0; i < amount; i++) {
+			glBindFramebuffer(GL_FRAMEBUFFER, pingpongFBO[horizontal]);
+			blurShader->setUniform("horizontal", horizontal);
+			glBindTexture(GL_TEXTURE_2D, first_iter ? texColorBuffer[1] : pingpongBuffer[!horizontal]);
+
+			//render quad
+			glBindVertexArray(quadVAO);
+			glDrawArrays(GL_TRIANGLES, 0, 6);
+			glBindVertexArray(0);
+
+			horizontal = !horizontal;
+			if (first_iter) {
+				first_iter = false;
+			}
+		}
+
+		//Render to screen
+		glBindFramebuffer(GL_FRAMEBUFFER, 0); //using default to render to screen
+		glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
+		glClear(GL_COLOR_BUFFER_BIT);
+
+		//maybe put into method (e.g. renderToScreen)
+		screenShader->useShader();
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_2D, texColorBuffer[0]);
+		glActiveTexture(GL_TEXTURE1);
+		glBindTexture(GL_TEXTURE_2D, pingpongBuffer[!horizontal]);
+		glBindVertexArray(quadVAO);
+		glDrawArrays(GL_TRIANGLES, 0, 6);
+		glBindVertexArray(0);
+		
+		/*****END OF RENDER*****/
 
 		// Swap buffers
 		glfwSwapBuffers(window);
@@ -344,6 +426,8 @@ void init(GLFWwindow* window) {
 	lightCubeShader = std::make_unique<Shader>("Shader/lightCube.vert", "Shader/lightCube.frag", true);
 	hudShader = std::make_unique<Shader>("Shader/hud.vert", "Shader/hud.frag", true);
 	textureShader = std::make_unique<Shader>("Shader/textureShader.vert", "Shader/textureShader.frag", true);// Shader for textured objects
+	screenShader = std::make_unique<Shader>("Shader/screenShader.vert", "Shader/screenShader.frag", true);
+	blurShader = std::make_unique<Shader>("Shader/blur.vert", "Shader/blur.frag", true);
 
 	// Link shaders
 	shader->link();
@@ -351,6 +435,13 @@ void init(GLFWwindow* window) {
 	lightCubeShader->link();
 	hudShader->link();
 	textureShader->link();
+	screenShader->link();
+	blurShader->link();
+
+	//initiate textures
+	screenShader->useShader();
+	screenShader->setUniform("scene", 0);
+	screenShader->setUniform("bloom", 1);
 
 	/* Step 2: Create scene objects and assign shaders */
 	skybox = std::make_unique<Skybox>(glm::mat4(1.0f), skyboxShader.get(), cubeMapTexture);
@@ -371,6 +462,61 @@ void init(GLFWwindow* window) {
 	cubeLight.setInitialized(true);
 	pointLights.push_back(cubeLight);
 	
+	/******SETUP FRAMEBUFFER******/
+	glGenFramebuffers(1, &framebuffer);
+	glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
+
+	//generate two textures (colorbuffers) and attach them to framebuffer
+	glGenTextures(2, texColorBuffer);
+	for (GLuint i = 0; i < 2; i++) {
+		glBindTexture(GL_TEXTURE_2D, texColorBuffer[i]);
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 + i, GL_TEXTURE_2D, texColorBuffer[i], 0);
+	}
+
+	//generate depth and stencil buffer and attach it to framebuffer
+	glGenRenderbuffers(1, &depthBuffer);
+	glBindRenderbuffer(GL_RENDERBUFFER, depthBuffer);
+	glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, width, height);
+
+	glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, depthBuffer);
+
+	//tell OpenGL this framebuffer will use multiple color attachments
+	GLuint attachments[2] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1 };
+	glDrawBuffers(2, attachments);
+
+	//check if framebuffer is complete
+	if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+		std::cout << "ERROR::FRAMEBUFFER:: Framebuffer is not complete!" << std::endl;
+	}
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+	/******SETUP PINGPONG FRAMEBUFFERS******/
+	//based on the Bloom tutorial from "Learn OpenGL" (https://learnopengl.com/#!Advanced-Lighting/Bloom)
+	glGenFramebuffers(2, pingpongFBO);
+	glGenTextures(2, pingpongBuffer);
+	for (GLuint i = 0; i < 2; i++) {
+		glBindFramebuffer(GL_FRAMEBUFFER, pingpongFBO[i]);
+		glBindTexture(GL_TEXTURE_2D, pingpongBuffer[i]);
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, pingpongBuffer[i], 0);
+
+		//check if framebuffer is complete
+		if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+			std::cout << "ERROR::FRAMEBUFFER:: Framebuffer is not complete!" << std::endl;
+		}
+	}
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
 	//Create PhysXcube:
 	PxReal density = 1.0f;
@@ -623,6 +769,10 @@ void cleanup() {
 	spaceship.reset(nullptr);
 	/* PhysX Cube */
 	physXCube.reset(nullptr);
+	/*Framebuffer*/
+	glDeleteRenderbuffers(1, &depthBuffer);
+	glDeleteTextures(2, texColorBuffer);
+	glDeleteFramebuffers(1, &framebuffer);
 }
 
 void initTextures() {

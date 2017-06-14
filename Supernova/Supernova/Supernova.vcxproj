@@ -199,6 +199,8 @@
   <ItemGroup>
     <None Include="Shader\basic.frag" />
     <None Include="Shader\basic.vert" />
+    <None Include="Shader\blur.frag" />
+    <None Include="Shader\blur.vert" />
     <None Include="Shader\ExtPTF\particles_render.frag" />
     <None Include="Shader\ExtPTF\particles_render.geom" />
     <None Include="Shader\ExtPTF\particles_render.vert" />
@@ -214,6 +216,8 @@
     <None Include="Shader\particleRender.vert" />
     <None Include="Shader\particleUpdate.geom" />
     <None Include="Shader\particleUpdate.vert" />
+    <None Include="Shader\screenShader.frag" />
+    <None Include="Shader\screenShader.vert" />
     <None Include="Shader\skybox.frag" />
     <None Include="Shader\skybox.vert" />
     <None Include="Shader\textureShader.frag" />
