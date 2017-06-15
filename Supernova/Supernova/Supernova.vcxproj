@@ -209,6 +209,8 @@
     <None Include="Shader\ExtPTF\particles_update.vert" />
     <None Include="Shader\hud.frag" />
     <None Include="Shader\hud.vert" />
+    <None Include="Shader\lensflares.frag" />
+    <None Include="Shader\lensflares.vert" />
     <None Include="Shader\lightCube.frag" />
     <None Include="Shader\lightCube.vert" />
     <None Include="Shader\particleRender.frag" />

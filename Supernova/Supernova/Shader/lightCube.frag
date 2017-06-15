@@ -10,7 +10,7 @@ void main() {
 
 	/*calculate bright areas*/
 	float brightness = dot(fragColor.rgb, vec3(0.2126, 0.7152, 0.0722));
-	if (brightness > 0.5) {
+	if (brightness > 0.9) {
 		brightColor = vec4(fragColor.rgb, 1.0);
 	}
 	else {

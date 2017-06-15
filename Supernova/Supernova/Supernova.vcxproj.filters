@@ -143,6 +143,8 @@
     <None Include="Shader\screenShader.frag" />
     <None Include="Shader\blur.vert" />
     <None Include="Shader\blur.frag" />
+    <None Include="Shader\lensflares.frag" />
+    <None Include="Shader\lensflares.vert" />
   </ItemGroup>
   <ItemGroup>
     <Image Include="Textures\Skybox\purplenebula_bk.png">

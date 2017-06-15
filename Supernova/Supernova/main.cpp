@@ -56,6 +56,7 @@ std::unique_ptr<Shader> hudShader;
 std::unique_ptr<Shader> textureShader;
 std::unique_ptr<Shader> screenShader;
 std::unique_ptr<Shader> blurShader;
+std::unique_ptr<Shader> lensFlareShader;
 
 // Game objects
 std::unique_ptr<Skybox> skybox;
@@ -77,6 +78,7 @@ std::unique_ptr<TextureLoader> textureLoader = std::make_unique<TextureLoader>()
 // Textures
 GLuint cubeMapTexture;
 GLuint particle;
+GLuint lensflaresColor;
 
 //Framebuffer
 GLuint framebuffer;
@@ -86,6 +88,10 @@ GLuint depthBuffer;
 //Pingpong Framebuffer
 GLuint pingpongFBO[2];
 GLuint pingpongBuffer[2];
+
+//LensFlares Framebuffer
+GLuint lensFlaresFBO;
+GLuint lensFlaresBuffer;
 
 // FreeType
 FT_Library ft;
@@ -312,7 +318,7 @@ void main(int argc, char** argv) {
 		draw();
 		//glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 		
-		//second pass
+		/******POST PRODUCTION******/
 		//Blur bright colors using pingpong framebuffers
 		bool horizontal = true;
 		bool first_iter = true;
@@ -335,7 +341,28 @@ void main(int argc, char** argv) {
 			}
 		}
 
-		//Render to screen
+		//Lens Flares
+		lensFlareShader->useShader();
+		int ghosts = 4; //number of ghost samples
+		float ghostDispersal = 0.5;
+		float haloWidth = 0.5;
+		float distortion = 3.0;
+
+		glBindFramebuffer(GL_FRAMEBUFFER, lensFlaresFBO);
+		lensFlareShader->setUniform("ghosts", ghosts);
+		lensFlareShader->setUniform("ghostDispersal", ghostDispersal);
+		lensFlareShader->setUniform("haloWidth", haloWidth);
+		lensFlareShader->setUniform("distortion", distortion);
+		
+		glBindTexture(GL_TEXTURE_2D, texColorBuffer[1]);
+		glActiveTexture(GL_TEXTURE1);
+		glBindTexture(GL_TEXTURE_2D, lensflaresColor);
+		//render quad
+		glBindVertexArray(quadVAO);
+		glDrawArrays(GL_TRIANGLES, 0, 6);
+		glBindVertexArray(0);
+
+		/******RENDER TO SCREEN******/
 		glBindFramebuffer(GL_FRAMEBUFFER, 0); //using default to render to screen
 		glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT);
@@ -346,6 +373,8 @@ void main(int argc, char** argv) {
 		glBindTexture(GL_TEXTURE_2D, texColorBuffer[0]);
 		glActiveTexture(GL_TEXTURE1);
 		glBindTexture(GL_TEXTURE_2D, pingpongBuffer[!horizontal]);
+		glActiveTexture(GL_TEXTURE2);
+		glBindTexture(GL_TEXTURE_2D, lensFlaresBuffer);
 		glBindVertexArray(quadVAO);
 		glDrawArrays(GL_TRIANGLES, 0, 6);
 		glBindVertexArray(0);
@@ -428,6 +457,7 @@ void init(GLFWwindow* window) {
 	textureShader = std::make_unique<Shader>("Shader/textureShader.vert", "Shader/textureShader.frag", true);// Shader for textured objects
 	screenShader = std::make_unique<Shader>("Shader/screenShader.vert", "Shader/screenShader.frag", true);
 	blurShader = std::make_unique<Shader>("Shader/blur.vert", "Shader/blur.frag", true);
+	lensFlareShader = std::make_unique<Shader>("Shader/lensflares.vert", "Shader/lensflares.frag", true);
 
 	// Link shaders
 	shader->link();
@@ -437,11 +467,17 @@ void init(GLFWwindow* window) {
 	textureShader->link();
 	screenShader->link();
 	blurShader->link();
+	lensFlareShader->link();
 
 	//initiate textures
 	screenShader->useShader();
 	screenShader->setUniform("scene", 0);
 	screenShader->setUniform("bloom", 1);
+	screenShader->setUniform("lensflares", 2);
+
+	lensFlareShader->useShader();
+	lensFlareShader->setUniform("input", 0);
+	lensFlareShader->setUniform("lensflaresColor", 1);
 
 	/* Step 2: Create scene objects and assign shaders */
 	skybox = std::make_unique<Skybox>(glm::mat4(1.0f), skyboxShader.get(), cubeMapTexture);
@@ -516,6 +552,27 @@ void init(GLFWwindow* window) {
 			std::cout << "ERROR::FRAMEBUFFER:: Framebuffer is not complete!" << std::endl;
 		}
 	}
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+	/******SETUP LENSFLARES FRAMEBUFFER******/
+	//based on the lensflares tutorial from John Chapman (http://john-chapman-graphics.blogspot.co.at/2013/02/pseudo-lens-flare.html)
+	glGenFramebuffers(1, &lensFlaresFBO);
+	glBindFramebuffer(GL_FRAMEBUFFER, lensFlaresFBO);
+
+	glGenTextures(1, &lensFlaresBuffer);
+	glBindTexture(GL_TEXTURE_2D, lensFlaresBuffer);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, lensFlaresBuffer, 0);
+
+	if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+		std::cout << "ERROR::FRAMEBUFFER:: Framebuffer is not complete!" << std::endl;
+	}
+
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
 	//Create PhysXcube:
@@ -789,6 +846,9 @@ void initTextures() {
 
 	// Load particle
 	particle = textureLoader->load("Textures/particle.bmp");
+
+	//Load LensFlares color
+	lensflaresColor = textureLoader->load("Textures/lensflares_color.png");
 }
 
 /* Called in init() - Loads a font and stores its rendered characters in a map */
