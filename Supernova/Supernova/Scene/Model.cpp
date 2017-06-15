@@ -166,3 +166,7 @@ Mesh Model::processMesh(aiMesh* mesh, const aiScene* scene) {
 
 	return Mesh(vertices, indices, textures, noTextureMaterial.get());
 }
+
+void Model::translate(vec3 _position) {
+	modelMatrix = glm::translate(modelMatrix, _position);
+}

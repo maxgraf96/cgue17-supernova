@@ -117,11 +117,7 @@ std::vector<PointLight> pointLights;
 std::unique_ptr<DirectionalLight> supernovaDirLight;
 
 //camera
-glm::vec3 cameraPos;
-glm::vec3 cameraFront;
-glm::vec3 cameraUp;
 glm::mat4 view;
-
 glm::mat4 projection;
 
 int width = 1376;
@@ -295,13 +291,24 @@ void main(int argc, char** argv) {
 		lastX = xpos;
 		lastY = ypos;
 
-		camera->update(forward, backward, rollLeft, rollRight, xoffset, yoffset, time_delta);
+		//update spaceship
+		spaceship->update(forward, backward, rollLeft, rollRight, xoffset, yoffset, time_delta);
+
+		//update other game components
+		update(time_delta, pressed);
+
+		//update camera
+		glm::vec3  cameraFront = spaceship->front;
+		glm::vec3  cameraUp = spaceship->up * -1.0f;
+		glm::vec3  cameraRight = spaceship->right;
+		glm::vec3 cameraPos = spaceship->getPosition();
+		cameraPos = cameraPos - 12.0f * cameraFront;
+		cameraPos = cameraPos - 2.0f * cameraUp;
+
+		camera->update(cameraPos, cameraFront, cameraUp, cameraRight);
 
 		//generate view projection matrix
 		view = camera->viewMatrix;
-
-		//update game components
-		update(time_delta, pressed);
 
 		//simulate PhysX (do somewhere else?)
 		stepPhysX(time_delta);
@@ -441,14 +448,6 @@ void init(GLFWwindow* window) {
 	//glClearColor(0.35f, 0.36f, 0.43f, 0.3f);
 	glViewport(0, 0, width, height);
 
-	// camera
-	cameraPos = glm::vec3(0.0f, 0.0f, -5.0f);
-	cameraFront = glm::vec3(0.0f, 0.0f, 1.0f);
-	cameraUp = glm::vec3(0.0f, 1.0f, 0.0f);
-
-	camera = std::make_unique<Camera>(cameraPos, cameraFront, cameraUp, glm::cross(cameraFront, cameraUp));
-	view = camera->viewMatrix;
-
 	/* Step 1: Create shaders */
 	shader = std::make_unique<Shader>("Shader/basic.vert", "Shader/basic.frag", true);
 	skyboxShader = std::make_unique<Shader>("Shader/skybox.vert", "Shader/skybox.frag", true);
@@ -480,11 +479,24 @@ void init(GLFWwindow* window) {
 	lensFlareShader->setUniform("lensflaresColor", 1);
 
 	/* Step 2: Create scene objects and assign shaders */
+	// camera
+	spaceship = std::make_unique<Spaceship>(glm::mat4(1.0f), "Models/spaceship/spaceship.obj");
+	spaceship->translate(vec3(0.0f, 0.0f, -50.0f));
+
+	glm::vec3  cameraFront = spaceship->front;
+	glm::vec3  cameraUp = spaceship->up * -1.0f;
+	glm::vec3  cameraRight = spaceship->right;
+	glm::vec3 cameraPos = spaceship->getPosition();
+	cameraPos = cameraPos - 12.0f * cameraFront;
+	cameraPos = cameraPos - 2.0f * cameraUp;
+
+	camera = std::make_unique<Camera>(cameraPos, cameraFront, cameraUp, cameraRight);
+	view = camera->viewMatrix;
+
 	skybox = std::make_unique<Skybox>(glm::mat4(1.0f), skyboxShader.get(), cubeMapTexture);
 	startCube = std::make_unique<MovingCube>(glm::mat4(1.0f), shader.get(), camera.get(), new Metal(vec3(0.905f, 0.298f, 0.235f)), 5.0f);
 	midCube = std::make_unique<MovingCube>(glm::mat4(1.0f), shader.get(), camera.get(), new Metal(vec3(0.905f, 0.298f, 0.235f)), 15.0f);
 	finishCube = std::make_unique<MovingCube>(glm::mat4(1.0f), shader.get(), camera.get(), new Metal(vec3(0.905f, 0.298f, 0.235f)), 25.0f);
-	spaceship = std::make_unique<Spaceship>(glm::mat4(1.0f), "Models/spaceship/spaceship.obj");
 
 	/* Create lights */
 	sun = std::make_unique<Sun>(glm::mat4(1.0f), "Models/mysun/sun.obj");
@@ -599,9 +611,9 @@ void init(GLFWwindow* window) {
 	spaceship->particleSystem.InitalizeParticleSystem();
 	spaceship->particleSystem.SetGeneratorProperties(
 		glm::vec3(0.0f, 0.0f, 0.0f), // Where the particles are generated
-		glm::vec3(-3, 0, -3), // Minimal velocity
-		glm::vec3(3, 5, 3), // Maximal velocity
-		glm::vec3(0, -5, 0), // Gravity force applied to particles
+		glm::vec3(-1, -1, 0), // Minimal velocity
+		glm::vec3(1, 1, 5), // Maximal velocity
+		glm::vec3(0, 0, 0), // Gravity force applied to particles
 		glm::vec3(0.92f, 0.08f, 0.08f), // Color (light blue)
 		0.3f, // Minimum lifetime in seconds
 		1.5f, // Maximum lifetime in seconds
