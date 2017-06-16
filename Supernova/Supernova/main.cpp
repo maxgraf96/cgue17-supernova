@@ -23,7 +23,9 @@
 #include "Scene\Model.hpp"
 #include "Shader.hpp"
 #include "Scene\PhysXCube.hpp"
-#include "CollisionDetector.hpp"
+#include "Scene\CollisionDetection\BoundingSphere.hpp"
+#include "Scene\CollisionDetection\AABB.hpp"
+#include "Scene\Laser.hpp"
 //#include "Particles\ParticleTF.hpp"
 #include "Particles\ExtPTF.hpp"
 #include "Lights\Light.hpp"
@@ -68,6 +70,7 @@ std::unique_ptr<TextQuad> textQuad;
 std::unique_ptr<Spaceship> spaceship;
 std::unique_ptr<PhysXCube> physXCube;
 std::unique_ptr<Sun> sun;
+std::unique_ptr<Laser> laser;
 
 // Camera
 std::unique_ptr<Camera> camera;
@@ -235,8 +238,7 @@ void main(int argc, char** argv) {
 		time = time_new;
 
 		/* Camera position console output */
-		//std::cout << "frametime:" << time_delta * 1000 << "ms =~" << 1.0 / time_delta << "fps" << std::endl;
-		//std::cout << "Camera position: " << cameraPos.x << ", " << cameraPos.y << ", " << cameraPos.z << std::endl;
+		std::cout << "frametime:" << time_delta * 1000 << "ms =~" << 1.0 / time_delta << "fps" << std::endl;
 
 		//react to user input (maybe extract key and mouse input to seperate methods!)
 		glfwPollEvents();
@@ -291,8 +293,11 @@ void main(int argc, char** argv) {
 		lastX = xpos;
 		lastY = ypos;
 
+		BoundingSphere boundingSun = sun->boundingSphere;
+		boundingSun.setPosition(sun->getPosition());
+
 		//update spaceship
-		spaceship->update(forward, backward, rollLeft, rollRight, xoffset, yoffset, time_delta);
+		spaceship->update(forward, backward, rollLeft, rollRight, xoffset, yoffset, time_delta, &boundingSun);
 
 		//update other game components
 		update(time_delta, pressed);
@@ -481,7 +486,7 @@ void init(GLFWwindow* window) {
 	/* Step 2: Create scene objects and assign shaders */
 	// camera
 	spaceship = std::make_unique<Spaceship>(glm::mat4(1.0f), "Models/spaceship/spaceship.obj");
-	spaceship->translate(vec3(0.0f, 0.0f, -50.0f));
+	spaceship->translate(vec3(0.0f, 0.0f, 0.0f));
 
 	glm::vec3  cameraFront = spaceship->front;
 	glm::vec3  cameraUp = spaceship->up * -1.0f;
@@ -498,12 +503,18 @@ void init(GLFWwindow* window) {
 	midCube = std::make_unique<MovingCube>(glm::mat4(1.0f), shader.get(), camera.get(), new Metal(vec3(0.905f, 0.298f, 0.235f)), 15.0f);
 	finishCube = std::make_unique<MovingCube>(glm::mat4(1.0f), shader.get(), camera.get(), new Metal(vec3(0.905f, 0.298f, 0.235f)), 25.0f);
 
+	laser = std::make_unique<Laser>(glm::mat4(1.0f), shader.get(), new Metal(vec3(0.905f, 0.298f, 0.235f)));
+	laser->modelMatrix = glm::scale(laser->modelMatrix, glm::vec3(0.2f, 0.2f, 10.0f));
+	laser->modelMatrix = glm::translate(laser->modelMatrix, spaceship->front);
+
 	/* Create lights */
 	sun = std::make_unique<Sun>(glm::mat4(1.0f), "Models/mysun/sun.obj");
+	sun->translate(vec3(0.0f, 0.0f, 30.0f));
+
 	vec3 sunLightColor = vec3(1.0f);
 	supernovaDirLight = std::make_unique<DirectionalLight>(sunLightColor, sunLightColor, sunLightColor, vec3(0, 0, 1));
 
-	vec3 lightCubeColor = vec3(1.0f, 0.5f, 0.8f);
+	vec3 lightCubeColor = vec3(1.0f, 1.0f, 1.0f);
 	lightCube = std::make_unique<LightCube>(glm::mat4(1.0f), lightCubeShader.get());
 	PointLight cubeLight = PointLight(lightCubeColor, lightCubeColor, lightCubeColor, lightCube->getPosition(),
 		1.0f, 0.9f, 0.2f);
@@ -610,7 +621,7 @@ void init(GLFWwindow* window) {
 	// Particle system(s)
 	spaceship->particleSystem.InitalizeParticleSystem();
 	spaceship->particleSystem.SetGeneratorProperties(
-		glm::vec3(0.0f, 0.0f, 0.0f), // Where the particles are generated
+		spaceship->getPositionFromModelMatrix(glm::translate(spaceship->modelMatrix, vec3(0.0f, 0.0f, -8.5f))), // Where the particles are generated
 		glm::vec3(-1, -1, 0), // Minimal velocity
 		glm::vec3(1, 1, 5), // Maximal velocity
 		glm::vec3(0, 0, 0), // Gravity force applied to particles
@@ -640,8 +651,9 @@ void update(float time_delta, int pressed) {
 	finishCube->update(time_delta, pressed);
 	spaceship->update(time_delta, pressed);
 
-	textQuad->update(time_delta, pressed);
+	laser->update(spaceship->modelMatrix, spaceship->front);
 
+	textQuad->update(time_delta, pressed);
 }
 
 void draw() {
@@ -690,6 +702,18 @@ void draw() {
 	auto model_location_sun = glGetUniformLocation(textureShader->programHandle, "model");
 	glUniformMatrix4fv(model_location_sun, 1, GL_FALSE, glm::value_ptr(model_sun));
 	sun->draw(textureShader.get());
+
+	/* Laser */
+	shader->useShader();
+
+	auto& model_laser = laser->modelMatrix;
+	auto model_location_laser = glGetUniformLocation(shader->programHandle, "model");
+	glUniformMatrix4fv(model_location_laser, 1, GL_FALSE, glm::value_ptr(model_laser));
+	auto view_projection_location_laser = glGetUniformLocation(shader->programHandle, "proj");
+	glUniformMatrix4fv(view_projection_location_laser, 1, GL_FALSE, glm::value_ptr(view_projection));
+	shader->setLightSources(*supernovaDirLight.get(), point_lights_array, camera.get());
+	laser->draw();
+	
 
 	///* Cube */
 	//shader->useShader();
