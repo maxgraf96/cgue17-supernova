@@ -20,11 +20,11 @@ namespace supernova {
 			virtual void update(float time_delta, int pressed) = 0;
 			virtual void draw(Shader* shader);
 			virtual void translate(glm::vec3 direction);
-			// Need bc extending SceneObject
+			// Need bc extending SceneObject - does nothing!
 			virtual void draw();
+			vector<Mesh> meshes;
 		private:
 			TextureLoader textureLoader;
-			vector<Mesh> meshes;
 			string directory;
 			vector<Texture> alreadyLoadedTextures;
 
@@ -48,30 +48,12 @@ namespace supernova {
 				right = glm::cross(front, up);
 			};
 
-			void update(float time_delta, int pressed) override {
-
-				// Movement
-				if (pressed == 1) {
-					modelMatrix = glm::translate(modelMatrix, glm::vec3(0, 0, 0.1f));
-				}
-				else if (pressed == -1) {
-					modelMatrix = glm::translate(modelMatrix, glm::vec3(0, 0, -0.1f));
-				}
-				else if (pressed == -2) {
-					modelMatrix = glm::translate(modelMatrix, glm::vec3(-0.1f, 0, 0));
-				}
-				else if (pressed == -3) {
-					modelMatrix = glm::translate(modelMatrix, glm::vec3(0.1f, 0, 0));
-				}
-
-				// Update particle system position when spaceship moves
-				glm::vec3 newParticlePos = getPosition() - 8.5f * front;
-				particleSystem.UpdateParticleGenerationPosition(newParticlePos);
-			}
+			void update(float time_delta, int pressed) {}
 
 			void update(bool forward, bool backward, bool rollLeft, bool rollRight, float xoffset, float yoffset,
 				float time_delta) {
 				glm::vec3 position = getPosition();
+
 				float roll = 0.0f;
 				float pitch = 0.0f;
 
@@ -126,6 +108,8 @@ namespace supernova {
 				modelMatrix[3][0] = position.x;
 				modelMatrix[3][1] = position.y;
 				modelMatrix[3][2] = position.z;
+
+				std::cout << to_string(front.z) << std::endl;
 			}
 
 		private:
@@ -138,7 +122,19 @@ namespace supernova {
 			: public supernova::scene::Model {
 
 		public:
-			Sun(glm::mat4& matrix, string const &path) : Model(matrix, path) {}
+			Sun(glm::mat4& matrix, string const &path) : Model(matrix, path) {
+				vec3 sunPosition = vec3(0, 0, -1500);
+				modelMatrix = glm::translate(modelMatrix, sunPosition);
+				modelMatrix = glm::scale(modelMatrix, vec3(300.0f));
+				// Create Sun material - it's white
+				vec3 color = vec3(1.0f);
+				float shininess = 0;
+
+				std::unique_ptr<Material> sunMaterial = std::make_unique<Material>(color, color, shininess);
+				for (GLuint i = 0; i < this->meshes.size(); i++) {
+					this->meshes[i].setNoTextureMaterial(sunMaterial.get());
+				}
+			}
 			void update(float time_delta, int pressed) override {
 				// ...
 			}

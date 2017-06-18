@@ -14,6 +14,6 @@ uniform mat4 proj;
 void main() {
 	gl_Position = proj * model * vec4(position, 1.0f);
 	fragPos = vec3(model * vec4(position, 1.0f));
-	fragNormal = normal;
+	fragNormal = mat3(transpose(inverse(model))) * normal;
 	texCoords = textureCoordinates;
 }

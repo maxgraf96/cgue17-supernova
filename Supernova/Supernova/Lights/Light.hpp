@@ -61,6 +61,8 @@ namespace supernova {
 			DirectionalLight(vec3 _ambient, vec3 _diffuse, vec3 _specular, vec3 _direction) :
 				Light(glm::vec3(), _ambient, _diffuse, _specular),
 				direction(_direction) {};
+			DirectionalLight() : Light(glm::vec3(0), glm::vec3(0), glm::vec3(0), glm::vec3(0)),
+				direction(glm::vec3(0)) {};
 
 			vec3& getDirection() {
 				return direction;

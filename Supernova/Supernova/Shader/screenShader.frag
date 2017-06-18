@@ -6,6 +6,7 @@ in vec2 texCoords;
 uniform sampler2D scene;
 uniform sampler2D bloom;
 uniform sampler2D lensflares;
+uniform sampler2D motionBlur;
 
 const float offset = 1.0 / 300.0; 
 vec2 offsets[9] = vec2[](
@@ -43,8 +44,12 @@ void main()
 	{
         lensflaresColor += sampleTex[i] * kernel[i];
 	}
+
+	vec3 motionBlurColor = texture(motionBlur, texCoords).rgb;
 	
 	//TODO: correct addition!
-	vec3 result = 0.5 * color + 0.3 * bloomColor + 0.2 * lensflaresColor;
+	vec3 result = 0.3 * color + 0.2 * bloomColor + 0.2 * lensflaresColor + 0.3 * motionBlurColor;
+	
+	//result = motionBlurColor;
 	fragColor = vec4(result, 1.0);
 }

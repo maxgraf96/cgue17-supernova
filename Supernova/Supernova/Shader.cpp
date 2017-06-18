@@ -151,17 +151,27 @@ void Shader::link() {
 	}
 }
 
-void Shader::setLightSources(supernova::scene::DirectionalLight dirLight, supernova::scene::PointLight pointLights[], supernova::scene::Camera* camera) {
-	// Directional light
-	GLint dirLightDirectionLoc = glGetUniformLocation(programHandle, "dirLight.direction");
-	GLint dirLightAmbientLoc = glGetUniformLocation(programHandle, "dirLight.ambient");
-	GLint dirLightDiffuseLoc = glGetUniformLocation(programHandle, "dirLight.diffuse");
-	GLint dirLightSpecularLoc = glGetUniformLocation(programHandle, "dirLight.specular");
+void Shader::setLightSources(supernova::scene::DirectionalLight dirLights[], supernova::scene::PointLight pointLights[], supernova::scene::Camera* camera) {
 
-	glUniform3f(dirLightDirectionLoc, dirLight.getDirection().x, dirLight.getDirection().y, dirLight.getDirection().z);
-	glUniform3f(dirLightAmbientLoc, dirLight.getAmbient().x, dirLight.getAmbient().y, dirLight.getAmbient().z);
-	glUniform3f(dirLightDiffuseLoc, dirLight.getDiffuse().x, dirLight.getDiffuse().y, dirLight.getDiffuse().z);
-	glUniform3f(dirLightSpecularLoc, dirLight.getSpecular().x, dirLight.getSpecular().y, dirLight.getSpecular().z);
+	// Directional lights
+	for (GLuint i = 0; i < 12; i++) {
+		string number = to_string(i);
+
+		if (!dirLights[i].isInitialized()) continue;
+		// Set initialized to true -> the shader will process it
+		glUniform1i(glGetUniformLocation(programHandle, ("dirLights[" + number + "].initialized").c_str()), 1);
+
+		// Directional light
+		GLint dirLightDirectionLoc = glGetUniformLocation(programHandle, ("dirLights[" + number + "].direction").c_str());
+		GLint dirLightAmbientLoc = glGetUniformLocation(programHandle, ("dirLights[" + number + "].ambient").c_str());
+		GLint dirLightDiffuseLoc = glGetUniformLocation(programHandle, ("dirLights[" + number + "].diffuse").c_str());
+		GLint dirLightSpecularLoc = glGetUniformLocation(programHandle, ("dirLights[" + number + "].specular").c_str());
+
+		glUniform3f(dirLightDirectionLoc, dirLights[i].getDirection().x, dirLights[i].getDirection().y, dirLights[i].getDirection().z);
+		glUniform3f(dirLightAmbientLoc, dirLights[i].getAmbient().x, dirLights[i].getAmbient().y, dirLights[i].getAmbient().z);
+		glUniform3f(dirLightDiffuseLoc, dirLights[i].getDiffuse().x, dirLights[i].getDiffuse().y, dirLights[i].getDiffuse().z);
+		glUniform3f(dirLightSpecularLoc, dirLights[i].getSpecular().x, dirLights[i].getSpecular().y, dirLights[i].getSpecular().z);
+	}
 
 	// Point lights
 	for (GLuint i = 0; i < 20; i++)

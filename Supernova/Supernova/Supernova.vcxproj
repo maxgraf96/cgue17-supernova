@@ -207,6 +207,10 @@
     <None Include="Shader\ExtPTF\particles_update.frag" />
     <None Include="Shader\ExtPTF\particles_update.geom" />
     <None Include="Shader\ExtPTF\particles_update.vert" />
+    <None Include="Shader\motionBlur.frag" />
+    <None Include="Shader\motionBlur.vert" />
+    <None Include="Shader\sun.frag" />
+    <None Include="Shader\sun.vert" />
     <None Include="Shader\hud.frag" />
     <None Include="Shader\hud.vert" />
     <None Include="Shader\lensflares.frag" />

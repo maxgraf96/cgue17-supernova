@@ -35,9 +35,10 @@ namespace supernova {
 			vector<unsigned int> indices;
 			vector<Texture> textures;
 
-			Mesh(vector<Vertex> vertices, vector<unsigned int> indices, vector<Texture> textures, Material* _material);
+			Mesh(vector<Vertex> vertices, vector<unsigned int> indices, vector<Texture> textures, Material* _noTextureMaterial);
 			~Mesh();
 			void draw(Shader* shader);
+			void setNoTextureMaterial(Material* material);
 		private:
 			GLuint vao, vbo, ebo;
 			// Material, if no texture is specified

@@ -49,7 +49,7 @@ bool stepPhysX(float dt);
 
 //make non global later!
 // Shaders
-std::unique_ptr<Shader> shader;
+std::unique_ptr<Shader> basicShader;
 std::unique_ptr<Shader> skyboxShader;
 std::unique_ptr<Shader> lightCubeShader;
 std::unique_ptr<Shader> hudShader;
@@ -57,16 +57,18 @@ std::unique_ptr<Shader> textureShader;
 std::unique_ptr<Shader> screenShader;
 std::unique_ptr<Shader> blurShader;
 std::unique_ptr<Shader> lensFlareShader;
+std::unique_ptr<Shader> motionBlurShader;
+std::unique_ptr<Shader> sunShader;
 
 // Game objects
 std::unique_ptr<Skybox> skybox;
 std::unique_ptr<MovingCube> startCube;
 std::unique_ptr<MovingCube> midCube;
 std::unique_ptr<MovingCube> finishCube;
-std::unique_ptr<LightCube> lightCube;
 std::unique_ptr<TextQuad> textQuad;
 std::unique_ptr<Spaceship> spaceship;
 std::unique_ptr<PhysXCube> physXCube;
+std::unique_ptr<LightCube> lightCube;
 std::unique_ptr<Sun> sun;
 
 // Camera
@@ -82,7 +84,7 @@ GLuint lensflaresColor;
 
 //Framebuffer
 GLuint framebuffer;
-GLuint texColorBuffer[2];
+GLuint texColorBuffer[4];
 GLuint depthBuffer;
 
 //Pingpong Framebuffer
@@ -92,6 +94,12 @@ GLuint pingpongBuffer[2];
 //LensFlares Framebuffer
 GLuint lensFlaresFBO;
 GLuint lensFlaresBuffer;
+
+// Motion blur framebuffer and helper objects
+GLuint motionBlurFBO;
+GLuint motionBlurColorOut;
+// Previous MVP matrix for comparing pixel positions
+glm::mat4 previousVP; // VP Matrix of previous frame
 
 // FreeType
 FT_Library ft;
@@ -113,8 +121,7 @@ float gStepSize = 1.0f / 60.0f;
 
 /* one vector that contains all point light sources. This vector is then passed to all shaders of objects that are to be lit. lit. */
 std::vector<PointLight> pointLights;
-// The one directional light we have is the supernova
-std::unique_ptr<DirectionalLight> supernovaDirLight;
+std::vector<DirectionalLight> dirLights;
 
 //camera
 glm::mat4 view;
@@ -236,7 +243,6 @@ void main(int argc, char** argv) {
 
 		/* Camera position console output */
 		//std::cout << "frametime:" << time_delta * 1000 << "ms =~" << 1.0 / time_delta << "fps" << std::endl;
-		//std::cout << "Camera position: " << cameraPos.x << ", " << cameraPos.y << ", " << cameraPos.z << std::endl;
 
 		//react to user input (maybe extract key and mouse input to seperate methods!)
 		glfwPollEvents();
@@ -291,11 +297,11 @@ void main(int argc, char** argv) {
 		lastX = xpos;
 		lastY = ypos;
 
+		//update game components
+		update(time_delta, pressed);
+
 		//update spaceship
 		spaceship->update(forward, backward, rollLeft, rollRight, xoffset, yoffset, time_delta);
-
-		//update other game components
-		update(time_delta, pressed);
 
 		//update camera
 		glm::vec3  cameraFront = spaceship->front;
@@ -307,7 +313,7 @@ void main(int argc, char** argv) {
 
 		camera->update(cameraPos, cameraFront, cameraUp, cameraRight);
 
-		//generate view projection matrix
+		//generate view matrix
 		view = camera->viewMatrix;
 
 		//simulate PhysX (do somewhere else?)
@@ -322,10 +328,35 @@ void main(int argc, char** argv) {
 		glEnable(GL_DEPTH_TEST); //could cause trouble
 		glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
 		draw();
-		//glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+
+		/******POST PROCESSING******/
+		// Motion blur
+		glBindFramebuffer(GL_FRAMEBUFFER, motionBlurFBO);
+		motionBlurShader->useShader();
+
+		// Current model->view matrix 
+		glm::mat4 inverseCurrentVP = glm::inverse(camera->viewMatrix * projection);
+		motionBlurShader->setUniform("inverseVP", inverseCurrentVP);
+		motionBlurShader->setUniform("previousVP", previousVP);
+		motionBlurShader->setUniform("fps", 1.0f / time_delta);
+
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_2D, texColorBuffer[0]);
+		motionBlurShader->setUniform("texColor", 0);
+
+		glActiveTexture(GL_TEXTURE1);
+		glBindTexture(GL_TEXTURE_2D, depthBuffer);
+		motionBlurShader->setUniform("texDepth", 1);
+
+		//render quad
+		glBindVertexArray(quadVAO);
+		glDrawArrays(GL_TRIANGLES, 0, 6);
+		glBindVertexArray(0);
+
+		glBindFramebuffer(GL_FRAMEBUFFER, 0);
 		
-		/******POST PRODUCTION******/
 		//Blur bright colors using pingpong framebuffers
 		bool horizontal = true;
 		bool first_iter = true;
@@ -361,7 +392,7 @@ void main(int argc, char** argv) {
 		lensFlareShader->setUniform("haloWidth", haloWidth);
 		lensFlareShader->setUniform("distortion", distortion);
 		
-		glBindTexture(GL_TEXTURE_2D, texColorBuffer[1]);
+		glBindTexture(GL_TEXTURE_2D, texColorBuffer[0]);
 		glActiveTexture(GL_TEXTURE1);
 		glBindTexture(GL_TEXTURE_2D, lensflaresColor);
 		//render quad
@@ -372,7 +403,7 @@ void main(int argc, char** argv) {
 		/******RENDER TO SCREEN******/
 		glBindFramebuffer(GL_FRAMEBUFFER, 0); //using default to render to screen
 		glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
-		glClear(GL_COLOR_BUFFER_BIT);
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 		//maybe put into method (e.g. renderToScreen)
 		screenShader->useShader();
@@ -382,11 +413,16 @@ void main(int argc, char** argv) {
 		glBindTexture(GL_TEXTURE_2D, pingpongBuffer[!horizontal]);
 		glActiveTexture(GL_TEXTURE2);
 		glBindTexture(GL_TEXTURE_2D, lensFlaresBuffer);
+		glActiveTexture(GL_TEXTURE3);
+		glBindTexture(GL_TEXTURE_2D, motionBlurColorOut);
+		
 		glBindVertexArray(quadVAO);
 		glDrawArrays(GL_TRIANGLES, 0, 6);
 		glBindVertexArray(0);
 		
 		/*****END OF RENDER*****/
+		mat4 test = lightCube->modelMatrix;
+		previousVP = camera->viewMatrix * projection;// previous vp = current vp
 
 		// Swap buffers
 		glfwSwapBuffers(window);
@@ -427,6 +463,7 @@ void init(GLFWwindow* window) {
 	//initialize PhysX
 	initializePhysX();
 
+	
 	/* Enable Blending for FreeType (HUD) */
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -449,34 +486,47 @@ void init(GLFWwindow* window) {
 	glViewport(0, 0, width, height);
 
 	/* Step 1: Create shaders */
-	shader = std::make_unique<Shader>("Shader/basic.vert", "Shader/basic.frag", true);
+	// Objects
+	textureShader = std::make_unique<Shader>("Shader/textureShader.vert", "Shader/textureShader.frag", true);
+	basicShader = std::make_unique<Shader>("Shader/basic.vert", "Shader/basic.frag", true);
 	skyboxShader = std::make_unique<Shader>("Shader/skybox.vert", "Shader/skybox.frag", true);
 	lightCubeShader = std::make_unique<Shader>("Shader/lightCube.vert", "Shader/lightCube.frag", true);
+	sunShader = std::make_unique<Shader>("Shader/sun.vert", "Shader/sun.frag", true);
+
+	// Effects
 	hudShader = std::make_unique<Shader>("Shader/hud.vert", "Shader/hud.frag", true);
-	textureShader = std::make_unique<Shader>("Shader/textureShader.vert", "Shader/textureShader.frag", true);// Shader for textured objects
 	screenShader = std::make_unique<Shader>("Shader/screenShader.vert", "Shader/screenShader.frag", true);
 	blurShader = std::make_unique<Shader>("Shader/blur.vert", "Shader/blur.frag", true);
 	lensFlareShader = std::make_unique<Shader>("Shader/lensflares.vert", "Shader/lensflares.frag", true);
+	motionBlurShader = std::make_unique<Shader>("Shader/motionBlur.vert", "Shader/motionBlur.frag", true);
 
 	// Link shaders
-	shader->link();
+	textureShader->link();
+	basicShader->link();
 	skyboxShader->link();
 	lightCubeShader->link();
+	sunShader->link();
+
 	hudShader->link();
-	textureShader->link();
 	screenShader->link();
 	blurShader->link();
 	lensFlareShader->link();
+	motionBlurShader->link();
 
 	//initiate textures
 	screenShader->useShader();
 	screenShader->setUniform("scene", 0);
 	screenShader->setUniform("bloom", 1);
 	screenShader->setUniform("lensflares", 2);
+	screenShader->setUniform("motionBlur", 3);
 
 	lensFlareShader->useShader();
 	lensFlareShader->setUniform("input", 0);
 	lensFlareShader->setUniform("lensflaresColor", 1);
+
+	motionBlurShader->useShader();
+	motionBlurShader->setUniform("texColor", 0);
+	motionBlurShader->setUniform("texDepth", 1);
 
 	/* Step 2: Create scene objects and assign shaders */
 	// camera
@@ -494,29 +544,46 @@ void init(GLFWwindow* window) {
 	view = camera->viewMatrix;
 
 	skybox = std::make_unique<Skybox>(glm::mat4(1.0f), skyboxShader.get(), cubeMapTexture);
-	startCube = std::make_unique<MovingCube>(glm::mat4(1.0f), shader.get(), camera.get(), new Metal(vec3(0.905f, 0.298f, 0.235f)), 5.0f);
-	midCube = std::make_unique<MovingCube>(glm::mat4(1.0f), shader.get(), camera.get(), new Metal(vec3(0.905f, 0.298f, 0.235f)), 15.0f);
-	finishCube = std::make_unique<MovingCube>(glm::mat4(1.0f), shader.get(), camera.get(), new Metal(vec3(0.905f, 0.298f, 0.235f)), 25.0f);
+	startCube = std::make_unique<MovingCube>(glm::mat4(1.0f), basicShader.get(), camera.get(), new Metal(vec3(0.905f, 0.298f, 0.235f)), 5.0f);
+	midCube = std::make_unique<MovingCube>(glm::mat4(1.0f), basicShader.get(), camera.get(), new Metal(vec3(0.905f, 0.298f, 0.235f)), 15.0f);
+	finishCube = std::make_unique<MovingCube>(glm::mat4(1.0f), basicShader.get(), camera.get(), new Metal(vec3(0.905f, 0.298f, 0.235f)), 25.0f);
 
 	/* Create lights */
-	sun = std::make_unique<Sun>(glm::mat4(1.0f), "Models/mysun/sun.obj");
+	sun = std::make_unique<Sun>(glm::mat4(1.0f), "Models/newsun/newsun.obj");
 	vec3 sunLightColor = vec3(1.0f);
-	supernovaDirLight = std::make_unique<DirectionalLight>(sunLightColor, sunLightColor, sunLightColor, vec3(0, 0, 1));
+	vec3 weaker = vec3(0.5f, 0.5f, 0.5f);
 
-	vec3 lightCubeColor = vec3(1.0f, 0.5f, 0.8f);
+	// Reasonably placed directional lights to simulate the sun
+	dirLights.push_back(*std::make_unique<DirectionalLight>(sunLightColor, sunLightColor, sunLightColor, vec3(0, 1, 0)).get());
+	dirLights.push_back(*std::make_unique<DirectionalLight>(sunLightColor, sunLightColor, sunLightColor, vec3(0, -1, 0)).get());
+
+	// Two from directly behind
+	dirLights.push_back(*std::make_unique<DirectionalLight>(sunLightColor, sunLightColor, sunLightColor, vec3(0, 0, 1)).get());
+	dirLights.push_back(*std::make_unique<DirectionalLight>(sunLightColor, sunLightColor, sunLightColor, vec3(0, 0, 1)).get());
+
+	dirLights.push_back(*std::make_unique<DirectionalLight>(sunLightColor, sunLightColor, sunLightColor, vec3(0.2f, 1, 1)).get());
+	dirLights.push_back(*std::make_unique<DirectionalLight>(sunLightColor, sunLightColor, sunLightColor, vec3(-0.2f, -1, 1)).get());
+
+	for (DirectionalLight &l : dirLights)
+		l.setInitialized(true);
+
+
+	vec3 lightCubeColor = vec3(0, 0, 0);
 	lightCube = std::make_unique<LightCube>(glm::mat4(1.0f), lightCubeShader.get());
 	PointLight cubeLight = PointLight(lightCubeColor, lightCubeColor, lightCubeColor, lightCube->getPosition(),
 		1.0f, 0.9f, 0.2f);
 	cubeLight.setInitialized(true);
 	pointLights.push_back(cubeLight);
+
+	
 	
 	/******SETUP FRAMEBUFFER******/
 	glGenFramebuffers(1, &framebuffer);
 	glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
 
 	//generate two textures (colorbuffers) and attach them to framebuffer
-	glGenTextures(2, texColorBuffer);
-	for (GLuint i = 0; i < 2; i++) {
+	glGenTextures(4, texColorBuffer);
+	for (GLuint i = 0; i < 3; i++) {
 		glBindTexture(GL_TEXTURE_2D, texColorBuffer[i]);
 		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
@@ -527,16 +594,19 @@ void init(GLFWwindow* window) {
 		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 + i, GL_TEXTURE_2D, texColorBuffer[i], 0);
 	}
 
-	//generate depth and stencil buffer and attach it to framebuffer
-	glGenRenderbuffers(1, &depthBuffer);
-	glBindRenderbuffer(GL_RENDERBUFFER, depthBuffer);
-	glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, width, height);
-
-	glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, depthBuffer);
+	// Add motion blur depth buffer -> this one writes to a texture instead of being a renderbuffer
+	glGenTextures(1, &depthBuffer);
+	glBindTexture(GL_TEXTURE_2D, depthBuffer);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT24, width, height, 0, GL_DEPTH_COMPONENT, GL_FLOAT, 0);
+	glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, depthBuffer, 0);
 
 	//tell OpenGL this framebuffer will use multiple color attachments
-	GLuint attachments[2] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1 };
-	glDrawBuffers(2, attachments);
+	GLuint attachments[4] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2, GL_COLOR_ATTACHMENT3 };
+	glDrawBuffers(4, attachments);
 
 	//check if framebuffer is complete
 	if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
@@ -584,7 +654,25 @@ void init(GLFWwindow* window) {
 	if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
 		std::cout << "ERROR::FRAMEBUFFER:: Framebuffer is not complete!" << std::endl;
 	}
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
+	/******SETUP MOTION BLUR FRAMEBUFFER******/
+	glGenFramebuffers(1, &motionBlurFBO);
+	glBindFramebuffer(GL_FRAMEBUFFER, motionBlurFBO);
+
+	glGenTextures(1, &motionBlurColorOut);
+	glBindTexture(GL_TEXTURE_2D, motionBlurColorOut);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, motionBlurColorOut, 0);
+
+	if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+		std::cout << "ERROR::FRAMEBUFFER:: Framebuffer is not complete!" << std::endl;
+	}
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
 	//Create PhysXcube:
@@ -602,7 +690,7 @@ void init(GLFWwindow* window) {
 	gScene->addActor(*actor);
 	PxRigidActor* box = actor;
 
-	physXCube = std::make_unique<PhysXCube>(glm::mat4(1.0f), box, shader.get(), new Metal(vec3(0.905f, 0.298f, 0.235f)));
+	physXCube = std::make_unique<PhysXCube>(glm::mat4(1.0f), box, basicShader.get(), new Metal(vec3(0.905f, 0.298f, 0.235f)));
 	
 	// HUD
 	textQuad = std::make_unique<TextQuad>(glm::mat4(1.0f), hudShader.get());
@@ -612,14 +700,14 @@ void init(GLFWwindow* window) {
 	spaceship->particleSystem.SetGeneratorProperties(
 		glm::vec3(0.0f, 0.0f, 0.0f), // Where the particles are generated
 		glm::vec3(-1, -1, 0), // Minimal velocity
-		glm::vec3(1, 1, 5), // Maximal velocity
+		glm::vec3(5, 5, 5), // Maximal velocity
 		glm::vec3(0, 0, 0), // Gravity force applied to particles
-		glm::vec3(0.92f, 0.08f, 0.08f), // Color (light blue)
-		0.3f, // Minimum lifetime in seconds
+		glm::vec3(0.92f, 0.08f, 0.08f), // Color
+		0.5f, // Minimum lifetime in seconds
 		1.5f, // Maximum lifetime in seconds
-		0.5f, // Rendered size
-		0.1f, // Spawn every 0.05 seconds
-		20// And spawn 30 particles);
+		0.3f, // Rendered size
+		0.05f, // Spawn every x seconds
+		10// And spawn 30 particles);
 		);
 
 	int width;
@@ -627,7 +715,7 @@ void init(GLFWwindow* window) {
 	glfwGetWindowSize(window, &width, &height);
 
 	/* glm::perspective takes (fov, aspect, nearPlane, farPlane) */
-	projection = glm::perspective(30.0f, width / (float)height, 0.1f, 50.0f);
+	projection = glm::perspective(30.0f, (float )width / (float)height, 0.1f, 2000.0f);
 
 	}
 
@@ -638,9 +726,9 @@ void update(float time_delta, int pressed) {
 	startCube->update(time_delta, pressed);
 	midCube->update(time_delta, pressed);
 	finishCube->update(time_delta, pressed);
-	spaceship->update(time_delta, pressed);
 
 	textQuad->update(time_delta, pressed);
+	sun->update(time_delta, pressed);
 
 }
 
@@ -655,8 +743,8 @@ void draw() {
 	glUniformMatrix4fv(view_projection_location_light_cube, 1, GL_FALSE, glm::value_ptr(view_projection));
 
 	// make light cube a little bit smaller and put it schräg above other cube
-	auto& model_light_cube = glm::scale(lightCube->modelMatrix, glm::vec3(0.4f));
-	model_light_cube = glm::translate(model_light_cube, glm::vec3(2.5f, -5.5f, 1.5f));
+	auto& model_light_cube = glm::scale(lightCube->modelMatrix, glm::vec3(3));
+	model_light_cube = glm::translate(model_light_cube, glm::vec3(2.5f, -5.5f, -30));
 	auto model_location_light_cube = glGetUniformLocation(lightCubeShader->programHandle, "model");
 	glUniformMatrix4fv(model_location_light_cube, 1, GL_FALSE, glm::value_ptr(model_light_cube));
 	lightCube->draw();
@@ -664,9 +752,11 @@ void draw() {
 	// view(camera) info
 	GLint cameraPosLoc;
 
-	// Convert light vector to array to pass it to shaders
+	// Convert light vectors to arrays to pass them to shaders
 	PointLight point_lights_array[20];
+	DirectionalLight dir_lights_array[12];
 	std::copy(pointLights.begin(), pointLights.end(), point_lights_array);
+	std::copy(dirLights.begin(), dirLights.end(), dir_lights_array);
 
 	/*-------------------- Textured objects --------------------- */
 	// Spaceship
@@ -678,18 +768,18 @@ void draw() {
 	glUniformMatrix4fv(model_location_spaceship, 1, GL_FALSE, glm::value_ptr(model_spaceship));
 	
 	// SET ALL LIGHT SOURCES WITH THIS LIMITED EDITION ONE LINER
-	textureShader->setLightSources(*supernovaDirLight.get(), point_lights_array, camera.get());
+	textureShader->setLightSources(dir_lights_array, point_lights_array, camera.get());
 
 	spaceship->draw(textureShader.get());
 
 	// Sun
-	textureShader->useShader();
-	auto view_projection_location_sun = glGetUniformLocation(textureShader->programHandle, "proj");
+	sunShader->useShader();
+	auto view_projection_location_sun = glGetUniformLocation(sunShader->programHandle, "proj");
 	glUniformMatrix4fv(view_projection_location_sun, 1, GL_FALSE, glm::value_ptr(view_projection));
 	auto& model_sun = sun->modelMatrix;
-	auto model_location_sun = glGetUniformLocation(textureShader->programHandle, "model");
+	auto model_location_sun = glGetUniformLocation(sunShader->programHandle, "model");
 	glUniformMatrix4fv(model_location_sun, 1, GL_FALSE, glm::value_ptr(model_sun));
-	sun->draw(textureShader.get());
+	sun->draw(sunShader.get());
 
 	///* Cube */
 	//shader->useShader();
@@ -759,7 +849,7 @@ void draw() {
 			shapePose.column2.x, shapePose.column2.y, shapePose.column2.z, shapePose.column2.w,
 			shapePose.column3.x, shapePose.column3.y, shapePose.column3.z, shapePose.column3.w);
 
-		auto model_location_physXCube = glGetUniformLocation(shader->programHandle, "model");
+		auto model_location_physXCube = glGetUniformLocation(basicShader->programHandle, "model");
 		glUniformMatrix4fv(model_location_physXCube, 1, GL_FALSE, glm::value_ptr(model_physXCube));
 		physXCube->draw();
 	}
@@ -790,6 +880,10 @@ void draw() {
 	// Particle system(s)
 	glBindTexture(GL_TEXTURE_2D, particle);
 
+	// Update particle system position when spaceship moves
+	glm::vec3 newParticlePos = camera->getPosition() + camera->getFront() * 2.2f + vec3(0, 1.4f, 0);
+	spaceship->particleSystem.UpdateParticleGenerationPosition(newParticlePos);
+
 	spaceship->particleSystem.SetMatrices(&projection, camera->getPosition(), camera->getPosition() + camera->getFront(), camera->getUp());
 	spaceship->particleSystem.UpdateParticles(time_delta);
 	spaceship->particleSystem.RenderParticles();
@@ -816,7 +910,7 @@ void draw() {
 }
 
 void cleanup() {
-	shader.reset(nullptr);
+	basicShader.reset(nullptr);
 	/* Light Cube */
 	//lightCube->particleSystem.~ParticleTF();
 	lightCube.reset(nullptr);
@@ -839,7 +933,6 @@ void cleanup() {
 	/* PhysX Cube */
 	physXCube.reset(nullptr);
 	/*Framebuffer*/
-	glDeleteRenderbuffers(1, &depthBuffer);
 	glDeleteTextures(2, texColorBuffer);
 	glDeleteFramebuffers(1, &framebuffer);
 }

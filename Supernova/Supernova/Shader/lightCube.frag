@@ -6,7 +6,7 @@ layout(location = 0) out vec4 fragColor;
 layout(location = 1) out vec4 brightColor;
 
 void main() {
-	fragColor = vec4(1, 1, 1, 1);
+	fragColor = vec4(1, 0.5f, 0.8f, 1);
 
 	/*calculate bright areas*/
 	float brightness = dot(fragColor.rgb, vec3(0.2126, 0.7152, 0.0722));

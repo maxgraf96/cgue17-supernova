@@ -13,11 +13,13 @@ uniform struct Material {
 	float shininess;
 } material;
 
+#define DIR_LIGHTS_NR 12
 uniform struct DirectionalLight{
 	vec3 direction;
 	vec3 ambient;
 	vec3 diffuse;
 	vec3 specular;
+	int initialized;
 };
 
 // Probably never more than 20 point lights in game
@@ -33,11 +35,11 @@ uniform struct PointLight{
 	int initialized;
 };
 
-uniform DirectionalLight dirLight;
+uniform DirectionalLight dirLights[DIR_LIGHTS_NR];
 uniform PointLight pointLights[POINT_LIGHTS_NR];
 uniform vec3 cameraPos;
 
-// Calculate directional light - there is only one - our supernova
+// Calculate directional lights
 vec3 calculateDirectionalLight(DirectionalLight light, vec3 normal, vec3 viewDir){
 	vec3 lightDir = normalize(-light.direction);
 
@@ -46,12 +48,12 @@ vec3 calculateDirectionalLight(DirectionalLight light, vec3 normal, vec3 viewDir
 
 	/* Diffuse */
 	float diff = max(dot(normal, lightDir), 0.0);
-	vec3 diffuse = (diff * vec3(texture(material.texture_diffuse, texCoords))) * light.diffuse;
+	vec3 diffuse = diff * texture(material.texture_diffuse, texCoords).rgb * light.diffuse;
 	
 	/* Specular */ 
 	vec3 reflectDir = reflect(-lightDir, normal);
 	float spec = pow( max(dot(viewDir, reflectDir), 0.0f), material.shininess );
-	vec3 specular = (vec3(texture(material.texture_specular, texCoords)) * spec) * light.specular;
+	vec3 specular = texture(material.texture_specular, texCoords).rgb * spec * light.specular;
 
 	return (ambient + diffuse + specular);
 }
@@ -88,8 +90,13 @@ void main() {
 	vec3 normal = normalize(fragNormal);
 	vec3 viewDir = normalize(cameraPos - fragPos);
 
-	// Add directional light
-	vec3 result = calculateDirectionalLight(dirLight, normal, viewDir);
+	vec3 result = vec3(0.0f);
+
+	// Add directional lights
+	for(int i = 0; i < DIR_LIGHTS_NR; i++){
+		if(dirLights[i].initialized < 1) continue;
+		result += calculateDirectionalLight(dirLights[i], normal, viewDir);
+	}
 
 	// Add point lights
 	for(int i = 0; i < POINT_LIGHTS_NR; i++){

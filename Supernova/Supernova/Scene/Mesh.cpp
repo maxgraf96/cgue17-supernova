@@ -11,11 +11,11 @@ using namespace std;
 using namespace supernova;
 using namespace supernova::scene;
 
-Mesh::Mesh(vector<Vertex> _vertices, vector<unsigned int> _indices, vector<Texture> _textures, Material* _material) {
+Mesh::Mesh(vector<Vertex> _vertices, vector<unsigned int> _indices, vector<Texture> _textures, Material* _noTextureMaterial) {
 	this->vertices = _vertices;
 	this->indices = _indices;
 	this->textures = _textures;
-	this->noTextureMaterial = _material;
+	this->noTextureMaterial = _noTextureMaterial;
 
 	this->setup();
 }
@@ -50,7 +50,7 @@ void Mesh::draw(Shader* shader) {
 		glUniform1f(matShininessLoc, noTextureMaterial->getShininess());
 	}
 	// Set shininess -> make changeable later
-	glUniform1f(glGetUniformLocation(shader->programHandle, "material.shininess"), 16.0f);
+	glUniform1f(glGetUniformLocation(shader->programHandle, "material.shininess"), 32.0f);
 
 	/* actual drawing of mesh */
 	glBindVertexArray(this->vao);
@@ -91,4 +91,8 @@ void Mesh::setup() {
 	/* unbind */
 	glBindVertexArray(0);
 
+}
+
+void Mesh::setNoTextureMaterial(Material* material) {
+	noTextureMaterial = material;
 }
