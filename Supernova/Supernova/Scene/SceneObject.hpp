@@ -2,6 +2,7 @@
 #include <vector>
 #include <glm/glm.hpp>
 #include "../Particles/ExtPTF.hpp"
+#include "CollisionDetection\BoundingObject.hpp"
 
 namespace supernova {
 	namespace scene {

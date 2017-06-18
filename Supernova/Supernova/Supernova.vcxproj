@@ -160,6 +160,10 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="Scene\Laser.cpp" />
+    <ClCompile Include="Scene\CollisionDetection\BoundingSphere.cpp" />
+    <ClCompile Include="Scene\CollisionDetection\AABB.cpp" />
+    <ClCompile Include="Scene\CollisionDetection\BoundingObject.cpp" />
     <ClCompile Include="Particles\ExtPTF.cpp" />
     <ClCompile Include="Materials\Metal.cpp" />
     <ClCompile Include="Particles\shaders.cpp" />
@@ -178,6 +182,10 @@
     <ClCompile Include="Textures\TextureLoader.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Scene\Laser.hpp" />
+    <ClInclude Include="Scene\CollisionDetection\BoundingSphere.hpp" />
+    <ClInclude Include="Scene\CollisionDetection\AABB.hpp" />
+    <ClInclude Include="Scene\CollisionDetection\BoundingObject.hpp" />
     <ClInclude Include="Particles\common_header.h" />
     <ClInclude Include="Particles\ExtPTF.hpp" />
     <ClInclude Include="Lights\Light.hpp" />

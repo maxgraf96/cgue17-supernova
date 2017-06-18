@@ -8,6 +8,8 @@
 #include "SceneObject.hpp"
 #include "Mesh.hpp"
 #include "../Textures/TextureLoader.hpp"
+#include "CollisionDetection\AABB.hpp"
+#include "CollisionDetection\BoundingSphere.hpp"
 
 
 namespace supernova {
@@ -40,19 +42,28 @@ namespace supernova {
 
 		public:
 			vec3 front, up, right;
+			AABB boundingBox;
+			BoundingSphere boundingSphere;
 
 			Spaceship(glm::mat4& matrix, string const &path) : Model(matrix, path),
-			speed(0.0f), rotateSpeed(90.0f), sensitivity(5.0f), totalPitch(0.0f), totalYaw(0.0f) {
+			speed(0.0f), rotateSpeed(90.0f), sensitivity(5.0f) {
 				front = glm::vec3(0.0f, 0.0f, 1.0f);
 				up = glm::vec3(0.0f, -1.0f, 0.0f);
 				right = glm::cross(front, up);
+
+				boundingBox = AABB(meshes, modelMatrix);
+				boundingSphere = BoundingSphere(meshes);
 			};
 
-			void update(float time_delta, int pressed) {}
+			void update(float time_delta, int pressed) override {
+				//not needed!
+			}
 
+			//TODO: give all Bounding Spheres to test against!
 			void update(bool forward, bool backward, bool rollLeft, bool rollRight, float xoffset, float yoffset,
-				float time_delta) {
-				glm::vec3 position = getPosition();
+				float time_delta, BoundingSphere* sunSphere) {
+ 				glm::vec3 position = getPosition();
+				glm::vec3 oldPosition = position;
 
 				float roll = 0.0f;
 				float pitch = 0.0f;
@@ -109,7 +120,22 @@ namespace supernova {
 				modelMatrix[3][1] = position.y;
 				modelMatrix[3][2] = position.z;
 
-				std::cout << to_string(front.z) << std::endl;
+				//test if collision occurs:
+				boundingSphere.setPosition(getPosition());
+
+				if (boundingSphere.collides(sunSphere)) {
+					std::cout << "Collision detected!" << std::endl;
+					modelMatrix[3][0] = oldPosition.x;
+					modelMatrix[3][1] = oldPosition.y;
+					modelMatrix[3][2] = oldPosition.z;
+				}
+				else {
+					std::cout << "Nothing!" << std::endl;
+				}
+
+				// Update particle system position when spaceship moves
+				glm::vec3 newParticlePos = getPosition() - 8.5f * front;
+				particleSystem.UpdateParticleGenerationPosition(newParticlePos);
 			}
 
 		private:
@@ -122,6 +148,8 @@ namespace supernova {
 			: public supernova::scene::Model {
 
 		public:
+			BoundingSphere boundingSphere;
+
 			Sun(glm::mat4& matrix, string const &path) : Model(matrix, path) {
 				vec3 sunPosition = vec3(0, 0, -1500);
 				modelMatrix = glm::translate(modelMatrix, sunPosition);
