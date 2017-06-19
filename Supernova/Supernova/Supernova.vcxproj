@@ -160,6 +160,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="Frustum.cpp" />
     <ClCompile Include="Scene\Laser.cpp" />
     <ClCompile Include="Scene\CollisionDetection\BoundingSphere.cpp" />
     <ClCompile Include="Scene\CollisionDetection\AABB.cpp" />
@@ -182,6 +183,7 @@
     <ClCompile Include="Textures\TextureLoader.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Frustum.hpp" />
     <ClInclude Include="Scene\Laser.hpp" />
     <ClInclude Include="Scene\CollisionDetection\BoundingSphere.hpp" />
     <ClInclude Include="Scene\CollisionDetection\AABB.hpp" />

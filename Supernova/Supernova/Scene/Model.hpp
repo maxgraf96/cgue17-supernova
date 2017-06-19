@@ -147,14 +147,14 @@ namespace supernova {
 				right = glm::cross(front, up);
 
 				boundingBox = AABB(meshes, modelMatrix);
-				boundingSphere = BoundingSphere(meshes);
+				boundingSphere = BoundingSphere(meshes, modelMatrix);
 			};
 
 			void update(float time_delta, int pressed) {}
 
 			//TODO: give all Bounding Spheres to test against!
 			void update(bool forward, bool backward, bool rollLeft, bool rollRight, float xoffset, float yoffset,
-				float time_delta, BoundingSphere* sunSphere, int pressed) {
+				float time_delta, vector<BoundingSphere*> obstacles) {
  				glm::vec3 position = getPosition();
 				glm::vec3 oldPosition = position;
 
@@ -216,14 +216,15 @@ namespace supernova {
 				//test if collision occurs:
 				boundingSphere.setPosition(getPosition());
 
-				if (boundingSphere.collides(sunSphere)) {
-					std::cout << "Collision detected!" << std::endl;
-					modelMatrix[3][0] = oldPosition.x;
-					modelMatrix[3][1] = oldPosition.y;
-					modelMatrix[3][2] = oldPosition.z;
-				}
-				else {
-					std::cout << "Nothing!" << std::endl;
+				int size = obstacles.size();
+				for (int i = 0; i < size; i++)
+				{
+					if (boundingSphere.collides(obstacles[i])) {
+						std::cout << "Collision detected!" << std::endl;
+						modelMatrix[3][0] = oldPosition.x;
+						modelMatrix[3][1] = oldPosition.y;
+						modelMatrix[3][2] = oldPosition.z;
+					}
 				}
 			}
 
@@ -251,10 +252,57 @@ namespace supernova {
 				for (GLuint i = 0; i < this->meshes.size(); i++) {
 					this->meshes[i].setNoTextureMaterial(sunMaterial.get());
 				}
+
+				boundingSphere = BoundingSphere(meshes, modelMatrix);
 			}
 			void update(float time_delta, int pressed) override {
 				// ...
 			}
+		};
+
+		/* ------------------ Asteroide -------------------------- */
+		class Asteroid
+			: public supernova::scene::Model {
+
+		public:
+			BoundingSphere boundingSphere;
+
+			Asteroid(glm::mat4& matrix, string const & path) : Model(matrix, path), destroyed(false), damage(0) {
+				//Give material (only as long as it is not an asteroid)
+				vec3 color = vec3(0.0f, 0.0f, 1.0f);
+				float shininess = 32.0f;
+
+				std::unique_ptr<Material> material = std::make_unique<Material>(color, color, shininess);
+				for (GLuint i = 0; i < this->meshes.size(); i++) {
+					this->meshes[i].setNoTextureMaterial(material.get());
+				}
+
+				boundingSphere = BoundingSphere(meshes, modelMatrix);
+			}
+
+			void detectHit(AABB* laser, float time_delta) {
+				boundingSphere.setPosition(getPosition());
+
+				if (boundingSphere.collides(laser)) {
+					damage += 100 * time_delta;
+				}
+
+				if (damage >= 100) {
+					destroyed = true;
+				}
+			}
+
+			void update(float time_delta, int pressed) override {
+				//do nothing, because asteroid is static!
+			}
+
+			bool getDestroyed() {
+				return destroyed;
+			}
+
+		private:
+			bool destroyed;
+			int damage;
 		};
 	}
 }
