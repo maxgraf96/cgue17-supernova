@@ -7,16 +7,16 @@ BoundingSphere::BoundingSphere() : BoundingObject(BoundingObjectType::Sphere)
 {
 }
 
-BoundingSphere::BoundingSphere(vector<Mesh>& meshes) : BoundingObject(BoundingObjectType::Sphere), radius(0.0f), position(glm::vec3(0.0f, 0.0f, 0.0f))
+BoundingSphere::BoundingSphere(vector<Mesh>& meshes, glm::mat4& modelMatrix) : BoundingObject(BoundingObjectType::Sphere), radius(0.0f), position(glm::vec3(0.0f, 0.0f, 0.0f))
 {
-	calculateBoundingSphere(meshes);
+	calculateBoundingSphere(meshes, modelMatrix);
 }
 
 BoundingSphere::~BoundingSphere()
 {
 }
 
-void BoundingSphere::calculateBoundingSphere(vector<Mesh>& _meshes) {
+void BoundingSphere::calculateBoundingSphere(vector<Mesh>& _meshes, glm::mat4& _modelMatrix) {
 	bool first = true;
 
 	int meshsize = _meshes.size();
@@ -27,6 +27,8 @@ void BoundingSphere::calculateBoundingSphere(vector<Mesh>& _meshes) {
 		for (int j = 0; j < vertexsize; j++)
 		{
 			glm::vec3 position = vertices[j].position;
+			glm::vec4 realPosition = (glm::vec4(position, 1.0f) * _modelMatrix);
+			position = glm::vec3(realPosition.x, realPosition.y, realPosition.z);
 
 			if (first) {
 				radius = glm::sqrt(position.x * position.x + position.y * position.y + position.z * position.z);

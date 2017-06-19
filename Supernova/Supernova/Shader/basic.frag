@@ -10,11 +10,13 @@ uniform struct Material {
 	float shininess;
 } material;
 
+#define DIR_LIGHTS_NR 12
 uniform struct DirectionalLight{
 	vec3 direction;
 	vec3 ambient;
 	vec3 diffuse;
 	vec3 specular;
+	int initialized;
 };
 
 // Probably never more than 20 point lights in game
@@ -30,7 +32,7 @@ uniform struct PointLight{
 	int initialized;
 };
 
-uniform DirectionalLight dirLight;
+uniform DirectionalLight dirLights[DIR_LIGHTS_NR];
 uniform PointLight pointLights[POINT_LIGHTS_NR];
 uniform vec3 cameraPos;
 
@@ -86,9 +88,13 @@ vec3 calculatePointLights(PointLight light, vec3 normal, vec3 fragPos, vec3 view
 void main() {
 	vec3 normal = normalize(fragNormal);
 	vec3 viewDir = normalize(cameraPos - fragPos);
+	vec3 result;
 
 	// Add directional light
-	vec3 result = calculateDirectionalLight(dirLight, normal, viewDir);
+	for(int i = 0; i < DIR_LIGHTS_NR; i++){
+		if(dirLights[i].initialized < 1) continue;
+		result = calculateDirectionalLight(dirLights[i], normal, viewDir);
+	}
 
 	// Add point lights
 	for(int i = 0; i < POINT_LIGHTS_NR; i++){

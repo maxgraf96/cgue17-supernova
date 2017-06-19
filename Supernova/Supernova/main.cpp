@@ -73,6 +73,9 @@ std::unique_ptr<PhysXCube> physXCube;
 std::unique_ptr<LightCube> lightCube;
 std::unique_ptr<Sun> sun;
 std::unique_ptr<Laser> laser;
+std::unique_ptr<Asteroid> asteroid1;
+std::unique_ptr<Asteroid> asteroid2;
+std::unique_ptr<Asteroid> asteroid3;
 
 // Camera
 std::unique_ptr<Camera> camera;
@@ -87,7 +90,7 @@ GLuint lensflaresColor;
 
 //Framebuffer
 GLuint framebuffer;
-GLuint texColorBuffer[4];
+GLuint texColorBuffer[2];
 GLuint depthBuffer;
 
 //Pingpong Framebuffer
@@ -300,11 +303,41 @@ void main(int argc, char** argv) {
 		lastX = xpos;
 		lastY = ypos;
 
+		//check if left mouse button was clicked for shooting the laser
+		if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT)) {
+			laser->setShooting(true);
+		}
+		else {
+			laser->setShooting(false);
+		}
+		
+		vector<BoundingSphere*> obstacles;
+
 		BoundingSphere boundingSun = sun->boundingSphere;
 		boundingSun.setPosition(sun->getPosition());
+		obstacles.push_back(&boundingSun);
+
+		if (!asteroid1->getDestroyed()) {
+			BoundingSphere boundingAsteroid1 = asteroid1->boundingSphere;
+			boundingAsteroid1.setPosition(asteroid1->getPosition());
+			obstacles.push_back(&boundingAsteroid1);
+		}
+
+		if (!asteroid2->getDestroyed()) {
+			BoundingSphere boundingAsteroid2 = asteroid2->boundingSphere;
+			boundingAsteroid2.setPosition(asteroid2->getPosition());
+			obstacles.push_back(&boundingAsteroid2);
+		}
+
+		if (!asteroid3->getDestroyed()) {
+			BoundingSphere boundingAsteroid3 = asteroid3->boundingSphere;
+			boundingAsteroid3.setPosition(asteroid3->getPosition());
+			obstacles.push_back(&boundingAsteroid3);
+		}
+		
 
 		//update spaceship
-		spaceship->update(forward, backward, rollLeft, rollRight, xoffset, yoffset, time_delta, &boundingSun);
+		spaceship->update(forward, backward, rollLeft, rollRight, xoffset, yoffset, time_delta, obstacles);
 
 		//update camera
 		glm::vec3  cameraFront = spaceship->front;
@@ -315,6 +348,18 @@ void main(int argc, char** argv) {
 		cameraPos = cameraPos - 2.0f * cameraUp;
 
 		camera->update(cameraPos, cameraFront, cameraUp, cameraRight);
+
+		update(time_delta, pressed);
+
+
+		if (laser->getShooting())
+		{
+			AABB boundingLaser = laser->boundingBox;
+
+			asteroid1->detectHit(&boundingLaser, time_delta);
+			asteroid2->detectHit(&boundingLaser, time_delta);
+			asteroid3->detectHit(&boundingLaser, time_delta);
+		}
 
 		//generate view matrix
 		view = camera->viewMatrix;
@@ -369,6 +414,8 @@ void main(int argc, char** argv) {
 		for (GLuint i = 0; i < amount; i++) {
 			glBindFramebuffer(GL_FRAMEBUFFER, pingpongFBO[horizontal]);
 			blurShader->setUniform("horizontal", horizontal);
+
+			glActiveTexture(GL_TEXTURE0);
 			glBindTexture(GL_TEXTURE_2D, first_iter ? texColorBuffer[1] : pingpongBuffer[!horizontal]);
 
 			//render quad
@@ -395,7 +442,8 @@ void main(int argc, char** argv) {
 		lensFlareShader->setUniform("haloWidth", haloWidth);
 		lensFlareShader->setUniform("distortion", distortion);
 		
-		glBindTexture(GL_TEXTURE_2D, texColorBuffer[0]);
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_2D, texColorBuffer[1]);
 		glActiveTexture(GL_TEXTURE1);
 		glBindTexture(GL_TEXTURE_2D, lensflaresColor);
 		//render quad
@@ -551,9 +599,19 @@ void init(GLFWwindow* window) {
 	midCube = std::make_unique<MovingCube>(glm::mat4(1.0f), basicShader.get(), camera.get(), new Metal(vec3(0.905f, 0.298f, 0.235f)), 15.0f);
 	finishCube = std::make_unique<MovingCube>(glm::mat4(1.0f), basicShader.get(), camera.get(), new Metal(vec3(0.905f, 0.298f, 0.235f)), 25.0f);
 
-	laser = std::make_unique<Laser>(glm::mat4(1.0f), basicShader.get(), new Metal(vec3(0.905f, 0.298f, 0.235f)));
-	laser->modelMatrix = glm::scale(laser->modelMatrix, glm::vec3(0.2f, 0.2f, 10.0f));
-	laser->modelMatrix = glm::translate(laser->modelMatrix, spaceship->front);
+	laser = std::make_unique<Laser>(glm::mat4(1.0f), "Models/cube/cube.obj");
+	laser->modelMatrix = glm::scale(laser->modelMatrix, glm::vec3(0.2, 0.2, 100.0));
+	laser->modelMatrix = glm::translate(laser->modelMatrix, camera->getFront() *1.0f);
+
+	//Create Interaction things, placeholders for asteroids
+	asteroid1 = std::make_unique<Asteroid>(glm::mat4(1.0f), "Models/newsun/newsun.obj");
+	asteroid1->modelMatrix = glm::translate(asteroid1->modelMatrix, glm::vec3(20.0f, 60.0f, -100.0f));
+
+	asteroid2 = std::make_unique<Asteroid>(glm::mat4(1.0f), "Models/newsun/newsun.obj");
+	asteroid2->modelMatrix = glm::translate(asteroid2->modelMatrix, glm::vec3(-10.0f, -10.0f, 130.0f));
+
+	asteroid3 = std::make_unique<Asteroid>(glm::mat4(1.0f), "Models/newsun/newsun.obj");
+	asteroid3->modelMatrix = glm::translate(asteroid3->modelMatrix, glm::vec3(0.0f, -70.0f, 0.0f));
 
 	/* Create lights */
 	sun = std::make_unique<Sun>(glm::mat4(1.0f), "Models/newsun/newsun.obj");
@@ -589,8 +647,8 @@ void init(GLFWwindow* window) {
 	glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
 
 	//generate two textures (colorbuffers) and attach them to framebuffer
-	glGenTextures(4, texColorBuffer);
-	for (GLuint i = 0; i < 3; i++) {
+	glGenTextures(2, texColorBuffer);
+	for (GLuint i = 0; i < 2; i++) {
 		glBindTexture(GL_TEXTURE_2D, texColorBuffer[i]);
 		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
@@ -612,8 +670,8 @@ void init(GLFWwindow* window) {
 	glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, depthBuffer, 0);
 
 	//tell OpenGL this framebuffer will use multiple color attachments
-	GLuint attachments[4] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2, GL_COLOR_ATTACHMENT3 };
-	glDrawBuffers(4, attachments);
+	GLuint attachments[2] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1 };
+	glDrawBuffers(2, attachments);
 
 	//check if framebuffer is complete
 	if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
@@ -717,6 +775,20 @@ void init(GLFWwindow* window) {
 		10// And spawn 30 particles);
 		);
 
+	laser->particleSystem.InitalizeParticleSystem();
+	laser->particleSystem.SetGeneratorProperties(
+		laser->getPositionFromModelMatrix(glm::translate(laser->modelMatrix, vec3(0.0f, 0.0f, -0.9f))),
+		glm::vec3(-0.1, -0.1, 80), // Minimal velocity
+		glm::vec3(0.1, 0.1, 120), // Maximal velocity
+		glm::vec3(0, 0, 0), // Gravity force applied to particles
+		glm::vec3(1.0f, 0.0f, 0.0f), // Color
+		5.0f, // Minimum lifetime in seconds
+		10.0f, // Maximum lifetime in seconds
+		0.5f, // Rendered size
+		0.05f, // Spawn every x seconds
+		20// And spawn 30 particles);
+	);
+
 	int width;
 	int height;
 	glfwGetWindowSize(window, &width, &height);
@@ -736,7 +808,6 @@ void update(float time_delta, int pressed) {
 
 	textQuad->update(time_delta, pressed);
 	sun->update(time_delta, pressed);
-	laser->update(spaceship->modelMatrix, spaceship->front);
 
 	textQuad->update(time_delta, pressed);
 }
@@ -790,17 +861,37 @@ void draw() {
 	glUniformMatrix4fv(model_location_sun, 1, GL_FALSE, glm::value_ptr(model_sun));
 	sun->draw(sunShader.get());
 
-	/* Laser */
+	/*Asteroids*/
 	basicShader->useShader();
 
-	auto& model_laser = laser->modelMatrix;
-	auto model_location_laser = glGetUniformLocation(basicShader->programHandle, "model");
-	glUniformMatrix4fv(model_location_laser, 1, GL_FALSE, glm::value_ptr(model_laser));
-	auto view_projection_location_laser = glGetUniformLocation(basicShader->programHandle, "proj");
-	glUniformMatrix4fv(view_projection_location_laser, 1, GL_FALSE, glm::value_ptr(view_projection));
+	auto view_projection_location_asteroid = glGetUniformLocation(basicShader->programHandle, "proj");
+	glUniformMatrix4fv(view_projection_location_asteroid, 1, GL_FALSE, glm::value_ptr(view_projection));
+
 	basicShader->setLightSources(dir_lights_array, point_lights_array, camera.get());
-	laser->draw();
-	
+
+	if (!asteroid1->getDestroyed()) {
+		auto& model_asteroid1 = asteroid1->modelMatrix;
+		auto model_location_asteroid1 = glGetUniformLocation(basicShader->programHandle, "model");
+		glUniformMatrix4fv(model_location_asteroid1, 1, GL_FALSE, glm::value_ptr(model_asteroid1));
+
+		asteroid1->draw(basicShader.get());
+	}
+
+	if (!asteroid2->getDestroyed()) {
+		auto& model_asteroid2 = asteroid2->modelMatrix;
+		auto model_location_asteroid2 = glGetUniformLocation(basicShader->programHandle, "model");
+		glUniformMatrix4fv(model_location_asteroid2, 1, GL_FALSE, glm::value_ptr(model_asteroid2));
+
+		asteroid2->draw(basicShader.get());
+	}
+
+	if (!asteroid3->getDestroyed()) {
+		auto& model_asteroid3 = asteroid3->modelMatrix;
+		auto model_location_asteroid3 = glGetUniformLocation(basicShader->programHandle, "model");
+		glUniformMatrix4fv(model_location_asteroid3, 1, GL_FALSE, glm::value_ptr(model_asteroid3));
+
+		asteroid3->draw(basicShader.get());
+	}
 
 	///* Cube */
 	//shader->useShader();
@@ -851,6 +942,13 @@ void draw() {
 	//auto model_location_finish_cube = glGetUniformLocation(shader->programHandle, "model");
 	//glUniformMatrix4fv(model_location_moving_cube, 1, GL_FALSE, glm::value_ptr(model_finish_cube));
 	//finishCube->draw();
+
+	basicShader->useShader();
+
+	auto view_projection_location_physx = glGetUniformLocation(basicShader->programHandle, "proj");
+	glUniformMatrix4fv(view_projection_location_physx, 1, GL_FALSE, glm::value_ptr(view_projection));
+
+	basicShader->setLightSources(dir_lights_array, point_lights_array, camera.get());
 
 	PhysXCube:
 	PxRigidActor* box = physXCube->actor;
@@ -909,6 +1007,17 @@ void draw() {
 	spaceship->particleSystem.UpdateParticles(time_delta);
 	spaceship->particleSystem.RenderParticles();
 
+	if (laser->getShooting()) {
+		laser->particleSystem.SetMatrices(&projection, camera->getPosition(), camera->getPosition() + camera->getFront(), camera->getUp());
+		laser->particleSystem.UpdateParticles(time_delta);
+		laser->particleSystem.RenderParticles();
+	}
+
+	//update laser when spaceship moves
+	laser->modelMatrix = spaceship->modelMatrix;
+	laser->modelMatrix = glm::scale(laser->modelMatrix, glm::vec3(0.2, 0.2, 100.0));
+	laser->modelMatrix = glm::translate(laser->modelMatrix, camera->getFront() * 1.0f);
+	laser->boundingBox.calculateAABB(laser->meshes, laser->modelMatrix);
 
 	/* HUD */
 	//glm::mat4 hudProjectionMat = glm::ortho(0.0f, static_cast<GLfloat>(width), 0.0f, static_cast<GLfloat>(height));
@@ -953,9 +1062,16 @@ void cleanup() {
 	spaceship.reset(nullptr);
 	/* PhysX Cube */
 	physXCube.reset(nullptr);
-	/*Framebuffer*/
+	/*Framebuffers*/
+	glDeleteTextures(1, &depthBuffer);
 	glDeleteTextures(2, texColorBuffer);
 	glDeleteFramebuffers(1, &framebuffer);
+	glDeleteTextures(2, pingpongBuffer);
+	glDeleteFramebuffers(2, pingpongFBO);
+	glDeleteTextures(1, &lensFlaresBuffer);
+	glDeleteFramebuffers(1, &lensFlaresFBO);
+	glDeleteTextures(1, &motionBlurColorOut);
+	glDeleteFramebuffers(1, &motionBlurFBO);
 }
 
 void initTextures() {

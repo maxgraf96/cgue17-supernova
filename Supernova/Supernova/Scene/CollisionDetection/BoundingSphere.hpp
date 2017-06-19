@@ -13,13 +13,13 @@ namespace supernova {
 		{
 		public:
 			BoundingSphere();
-			BoundingSphere(vector<Mesh>& meshes);
+			BoundingSphere(vector<Mesh>& meshes, glm::mat4& modelMatrix);
 			~BoundingSphere();
 
 			glm::vec3 position;
 			float radius;
 
-			void calculateBoundingSphere(vector<Mesh>& meshes);
+			void calculateBoundingSphere(vector<Mesh>& meshes, glm::mat4& modelMatrix);
 			bool collides(BoundingSphere* sphere) override;
 			bool collides(AABB* box) override;
 
