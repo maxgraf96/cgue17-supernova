@@ -29,6 +29,7 @@
 //#include "Particles\ParticleTF.hpp"
 #include "Particles\ExtPTF.hpp"
 #include "Lights\Light.hpp"
+#include "Frustum.hpp"
 
 /* Freetype is used for the HUD -> to draw 2D characters to screen */
 #include <ft2build.h>
@@ -79,6 +80,9 @@ std::unique_ptr<Asteroid> asteroid3;
 
 // Camera
 std::unique_ptr<Camera> camera;
+
+//Frustum
+Frustum viewFrustum = Frustum();
 
 // Textuer loader
 std::unique_ptr<TextureLoader> textureLoader = std::make_unique<TextureLoader>();
@@ -138,6 +142,9 @@ int height = 768;
 bool fullscreen = false;
 
 float time_delta = 0;
+
+//for enabling features
+bool frustumCulling = true;
 
 void main(int argc, char** argv) {
 
@@ -289,6 +296,9 @@ void main(int argc, char** argv) {
 		if (glfwGetKey(window, GLFW_KEY_D)) {
 			rollRight = true;
 		}
+		if (glfwGetKey(window, GLFW_KEY_F8)) {
+			frustumCulling = !frustumCulling;
+		}
 
 		double xpos, ypos;
 		glfwGetCursorPos(window, &xpos, &ypos);
@@ -334,7 +344,6 @@ void main(int argc, char** argv) {
 			boundingAsteroid3.setPosition(asteroid3->getPosition());
 			obstacles.push_back(&boundingAsteroid3);
 		}
-		
 
 		//update spaceship
 		spaceship->update(forward, backward, rollLeft, rollRight, xoffset, yoffset, time_delta, obstacles);
@@ -351,6 +360,7 @@ void main(int argc, char** argv) {
 
 		update(time_delta, pressed);
 
+		viewFrustum.update(camera->getPosition(), camera->getFront(), camera->getUp());
 
 		if (laser->getShooting())
 		{
@@ -795,7 +805,7 @@ void init(GLFWwindow* window) {
 
 	/* glm::perspective takes (fov, aspect, nearPlane, farPlane) */
 	projection = glm::perspective(30.0f, (float )width / (float)height, 0.1f, 2000.0f);
-
+	viewFrustum.setCameraParameters(0.1f, 2000.0f, (float)width / (float)height, 30.0f);
 	}
 
 void update(float time_delta, int pressed) {
@@ -841,14 +851,14 @@ void draw() {
 	/*-------------------- Textured objects --------------------- */
 	// Spaceship
 	textureShader->useShader();
+	// SET ALL LIGHT SOURCES WITH THIS LIMITED EDITION ONE LINER
+	textureShader->setLightSources(dir_lights_array, point_lights_array, camera.get());
+
 	auto view_projection_location_spaceship = glGetUniformLocation(textureShader->programHandle, "proj");
 	glUniformMatrix4fv(view_projection_location_spaceship, 1, GL_FALSE, glm::value_ptr(view_projection));
 	auto& model_spaceship = spaceship->modelMatrix;
 	auto model_location_spaceship = glGetUniformLocation(textureShader->programHandle, "model");
 	glUniformMatrix4fv(model_location_spaceship, 1, GL_FALSE, glm::value_ptr(model_spaceship));
-	
-	// SET ALL LIGHT SOURCES WITH THIS LIMITED EDITION ONE LINER
-	textureShader->setLightSources(dir_lights_array, point_lights_array, camera.get());
 
 	spaceship->draw(textureShader.get());
 
@@ -856,10 +866,18 @@ void draw() {
 	sunShader->useShader();
 	auto view_projection_location_sun = glGetUniformLocation(sunShader->programHandle, "proj");
 	glUniformMatrix4fv(view_projection_location_sun, 1, GL_FALSE, glm::value_ptr(view_projection));
-	auto& model_sun = sun->modelMatrix;
-	auto model_location_sun = glGetUniformLocation(sunShader->programHandle, "model");
-	glUniformMatrix4fv(model_location_sun, 1, GL_FALSE, glm::value_ptr(model_sun));
-	sun->draw(sunShader.get());
+
+
+	//View Frustum Culling:
+	BoundingSphere boundingSun = sun->boundingSphere;
+	boundingSun.setPosition(sun->getPosition());
+
+	if (!frustumCulling || !(viewFrustum.testSphere(&boundingSun) == viewFrustum.OUTSIDE)) {
+		auto& model_sun = sun->modelMatrix;
+		auto model_location_sun = glGetUniformLocation(sunShader->programHandle, "model");
+		glUniformMatrix4fv(model_location_sun, 1, GL_FALSE, glm::value_ptr(model_sun));
+		sun->draw(sunShader.get());
+	}
 
 	/*Asteroids*/
 	basicShader->useShader();
@@ -869,7 +887,10 @@ void draw() {
 
 	basicShader->setLightSources(dir_lights_array, point_lights_array, camera.get());
 
-	if (!asteroid1->getDestroyed()) {
+	BoundingSphere boundingAsteroid1 = asteroid1->boundingSphere;
+	boundingAsteroid1.setPosition(asteroid1->getPosition());
+
+	if (!asteroid1->getDestroyed() || !frustumCulling || !(viewFrustum.testSphere(&boundingAsteroid1) == viewFrustum.OUTSIDE)) {
 		auto& model_asteroid1 = asteroid1->modelMatrix;
 		auto model_location_asteroid1 = glGetUniformLocation(basicShader->programHandle, "model");
 		glUniformMatrix4fv(model_location_asteroid1, 1, GL_FALSE, glm::value_ptr(model_asteroid1));
@@ -877,7 +898,10 @@ void draw() {
 		asteroid1->draw(basicShader.get());
 	}
 
-	if (!asteroid2->getDestroyed()) {
+	BoundingSphere boundingAsteroid2 = asteroid2->boundingSphere;
+	boundingAsteroid2.setPosition(asteroid2->getPosition());
+
+	if (!asteroid2->getDestroyed() || !frustumCulling || !(viewFrustum.testSphere(&boundingAsteroid2) == viewFrustum.OUTSIDE)) {
 		auto& model_asteroid2 = asteroid2->modelMatrix;
 		auto model_location_asteroid2 = glGetUniformLocation(basicShader->programHandle, "model");
 		glUniformMatrix4fv(model_location_asteroid2, 1, GL_FALSE, glm::value_ptr(model_asteroid2));
@@ -885,7 +909,10 @@ void draw() {
 		asteroid2->draw(basicShader.get());
 	}
 
-	if (!asteroid3->getDestroyed()) {
+	BoundingSphere boundingAsteroid3 = asteroid3->boundingSphere;
+	boundingAsteroid3.setPosition(asteroid3->getPosition());
+
+	if (!asteroid3->getDestroyed() || !frustumCulling || !(viewFrustum.testSphere(&boundingAsteroid3) == viewFrustum.OUTSIDE)) {
 		auto& model_asteroid3 = asteroid3->modelMatrix;
 		auto model_location_asteroid3 = glGetUniformLocation(basicShader->programHandle, "model");
 		glUniformMatrix4fv(model_location_asteroid3, 1, GL_FALSE, glm::value_ptr(model_asteroid3));
