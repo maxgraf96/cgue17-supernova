@@ -37,8 +37,8 @@ namespace supernova {
 			vec3& getPosition() {
 				return position;
 			}
-			void setShininess(vec3& position) {
-				this->position = position;
+			void updatePosition(glm::vec3 _position) {
+				position = _position;
 			}
 			bool isInitialized() {
 				return initialized;
@@ -98,6 +98,35 @@ namespace supernova {
 			float constant;
 			float linear;
 			float quadratic;
+		};
+	
+		/* Spotlight */
+		class SpotLight : public Light {
+		public:
+			SpotLight(vec3 _position, vec3 _color, vec3 _direction, float _cutoff, float _outercutoff) :
+				Light(_position, _color, _color, _color), 
+				direction(_direction), cutoff(_cutoff), outercutoff(_outercutoff) {};
+			SpotLight() :
+				Light(glm::vec3(0), glm::vec3(0), glm::vec3(0), glm::vec3(0)),
+				direction(glm::vec3(0)), cutoff(0.0f), outercutoff(0.0f) {};
+			vec3 getDirection() {
+				return direction;
+			}
+			void updateDirection(vec3 _direction) {
+				direction = _direction;
+			}
+			float getCutoff() {
+				return cutoff;
+			}
+			float getOuterCutoff() {
+				return outercutoff;
+			}
+
+			
+		private:
+			vec3 direction;
+			float cutoff;
+			float outercutoff;
 		};
 	}
 }

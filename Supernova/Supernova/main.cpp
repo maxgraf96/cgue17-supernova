@@ -73,6 +73,7 @@ std::unique_ptr<PhysXCube> physXCube;
 std::unique_ptr<LightCube> lightCube;
 std::unique_ptr<Sun> sun;
 std::unique_ptr<Laser> laser;
+std::unique_ptr<Radar> radar;
 
 // Camera
 std::unique_ptr<Camera> camera;
@@ -122,13 +123,23 @@ PxDefaultAllocator gAllocator;
 float gAccumulator = 0.0f;
 float gStepSize = 1.0f / 60.0f;
 
-/* one vector that contains all point light sources. This vector is then passed to all shaders of objects that are to be lit. lit. */
+/* vectors that contain light sources. They are subsequently passed to all shaders of objects that are to be lit. lit. */
 std::vector<PointLight> pointLights;
 std::vector<DirectionalLight> dirLights;
+std::vector<SpotLight> spotLights;
+
+// Lights
+PointLight cubeLight;
+SpotLight headLights;
 
 //camera
 glm::mat4 view;
 glm::mat4 projection;
+
+// Radar
+bool radarRotationDirection = false;
+bool radarRetracting = false;
+bool radarRetracted = false;
 
 int width = 1376;
 int height = 768;
@@ -268,6 +279,15 @@ void main(int argc, char** argv) {
 		else if (glfwGetKey(window, GLFW_KEY_RIGHT)) {
 			pressed = -3;
 		}
+		else if (glfwGetKey(window, GLFW_KEY_Q)) {
+			radarRotationDirection = false;
+		}
+		else if (glfwGetKey(window, GLFW_KEY_E)) {
+			radarRotationDirection = true;
+		}
+		else if (glfwGetKey(window, GLFW_KEY_U)) {
+			radarRetracting = true;
+		}
 
 		//update camera
 		bool forward = false;
@@ -304,7 +324,8 @@ void main(int argc, char** argv) {
 		boundingSun.setPosition(sun->getPosition());
 
 		//update spaceship
-		spaceship->update(forward, backward, rollLeft, rollRight, xoffset, yoffset, time_delta, &boundingSun);
+		spaceship->update(forward, backward, rollLeft, rollRight, xoffset, yoffset, time_delta, &boundingSun, pressed);
+		radar->update(time_delta, pressed, spaceship->modelMatrix, radarRotationDirection, radarRetracting, radarRetracted);
 
 		//update camera
 		glm::vec3  cameraFront = spaceship->front;
@@ -315,6 +336,9 @@ void main(int argc, char** argv) {
 		cameraPos = cameraPos - 2.0f * cameraUp;
 
 		camera->update(cameraPos, cameraFront, cameraUp, cameraRight);
+
+		// update game objects
+		update(time_delta, pressed);
 
 		//generate view matrix
 		view = camera->viewMatrix;
@@ -369,6 +393,7 @@ void main(int argc, char** argv) {
 		for (GLuint i = 0; i < amount; i++) {
 			glBindFramebuffer(GL_FRAMEBUFFER, pingpongFBO[horizontal]);
 			blurShader->setUniform("horizontal", horizontal);
+			glActiveTexture(GL_TEXTURE0);
 			glBindTexture(GL_TEXTURE_2D, first_iter ? texColorBuffer[1] : pingpongBuffer[!horizontal]);
 
 			//render quad
@@ -395,7 +420,8 @@ void main(int argc, char** argv) {
 		lensFlareShader->setUniform("haloWidth", haloWidth);
 		lensFlareShader->setUniform("distortion", distortion);
 		
-		glBindTexture(GL_TEXTURE_2D, texColorBuffer[0]);
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_2D, texColorBuffer[1]);
 		glActiveTexture(GL_TEXTURE1);
 		glBindTexture(GL_TEXTURE_2D, lensflaresColor);
 		//render quad
@@ -424,7 +450,6 @@ void main(int argc, char** argv) {
 		glBindVertexArray(0);
 		
 		/*****END OF RENDER*****/
-		mat4 test = lightCube->modelMatrix;
 		previousVP = camera->viewMatrix * projection;// previous vp = current vp
 
 		// Swap buffers
@@ -533,6 +558,7 @@ void init(GLFWwindow* window) {
 
 	/* Step 2: Create scene objects and assign shaders */
 	// camera
+	radar = std::make_unique<Radar>(glm::mat4(1.0f), "Models/radar/radar.obj");
 	spaceship = std::make_unique<Spaceship>(glm::mat4(1.0f), "Models/spaceship/spaceship.obj");
 	spaceship->translate(vec3(0.0f, 0.0f, 0.0f));
 
@@ -556,6 +582,7 @@ void init(GLFWwindow* window) {
 	laser->modelMatrix = glm::translate(laser->modelMatrix, spaceship->front);
 
 	/* Create lights */
+	/* DIRECTIONAL */
 	sun = std::make_unique<Sun>(glm::mat4(1.0f), "Models/newsun/newsun.obj");
 	vec3 sunLightColor = vec3(1.0f);
 	vec3 weaker = vec3(0.5f, 0.5f, 0.5f);
@@ -575,13 +602,21 @@ void init(GLFWwindow* window) {
 		l.setInitialized(true);
 
 
+	/* POINT */
 	vec3 lightCubeColor = vec3(0, 0, 0);
 	lightCube = std::make_unique<LightCube>(glm::mat4(1.0f), lightCubeShader.get());
-	PointLight cubeLight = PointLight(lightCubeColor, lightCubeColor, lightCubeColor, lightCube->getPosition(),
+	cubeLight = PointLight(lightCubeColor, lightCubeColor, lightCubeColor, lightCube->getPosition(),
 		1.0f, 0.9f, 0.2f);
 	cubeLight.setInitialized(true);
 	pointLights.push_back(cubeLight);
 
+	/* SPOT */
+	vec3 color = vec3(1);
+	vec3 position = camera->getPosition() - 8.5f * camera->getFront();
+	vec3 direction = camera->getFront();
+	headLights = SpotLight(position, color, direction, glm::cos(glm::radians(12.5f)), glm::cos(glm::radians(18.0f)));
+	headLights.setInitialized(true);
+	spotLights.push_back(headLights);
 	
 	
 	/******SETUP FRAMEBUFFER******/
@@ -589,8 +624,8 @@ void init(GLFWwindow* window) {
 	glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
 
 	//generate two textures (colorbuffers) and attach them to framebuffer
-	glGenTextures(4, texColorBuffer);
-	for (GLuint i = 0; i < 3; i++) {
+	glGenTextures(2, texColorBuffer);
+	for (GLuint i = 0; i < 2; i++) {
 		glBindTexture(GL_TEXTURE_2D, texColorBuffer[i]);
 		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
@@ -612,8 +647,8 @@ void init(GLFWwindow* window) {
 	glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, depthBuffer, 0);
 
 	//tell OpenGL this framebuffer will use multiple color attachments
-	GLuint attachments[4] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2, GL_COLOR_ATTACHMENT3 };
-	glDrawBuffers(4, attachments);
+	GLuint attachments[2] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1 };
+	glDrawBuffers(2, attachments);
 
 	//check if framebuffer is complete
 	if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
@@ -739,6 +774,19 @@ void update(float time_delta, int pressed) {
 	laser->update(spaceship->modelMatrix, spaceship->front);
 
 	textQuad->update(time_delta, pressed);
+
+	// Update lights
+	// point lights
+	cubeLight.updatePosition(lightCube->getPosition());
+	pointLights.clear();
+	pointLights.push_back(cubeLight);
+
+	// spot lights
+	glm::vec3 newPos = camera->getPosition() + camera->getFront() * 12.0f;
+	headLights.updatePosition(newPos);
+	headLights.updateDirection(camera->getFront());
+	spotLights.clear();
+	spotLights.push_back(headLights);
 }
 
 void draw() {
@@ -764,22 +812,33 @@ void draw() {
 	// Convert light vectors to arrays to pass them to shaders
 	PointLight point_lights_array[20];
 	DirectionalLight dir_lights_array[12];
+	SpotLight spot_lights_array[12];
 	std::copy(pointLights.begin(), pointLights.end(), point_lights_array);
 	std::copy(dirLights.begin(), dirLights.end(), dir_lights_array);
+	std::copy(spotLights.begin(), spotLights.end(), spot_lights_array);
 
 	/*-------------------- Textured objects --------------------- */
-	// Spaceship
 	textureShader->useShader();
+	// SET ALL LIGHT SOURCES WITH THIS LIMITED EDITION ONE LINER
+	textureShader->setLightSources(dir_lights_array, point_lights_array, spot_lights_array, camera.get());
+
+	// Spaceship
+	
 	auto view_projection_location_spaceship = glGetUniformLocation(textureShader->programHandle, "proj");
 	glUniformMatrix4fv(view_projection_location_spaceship, 1, GL_FALSE, glm::value_ptr(view_projection));
 	auto& model_spaceship = spaceship->modelMatrix;
 	auto model_location_spaceship = glGetUniformLocation(textureShader->programHandle, "model");
 	glUniformMatrix4fv(model_location_spaceship, 1, GL_FALSE, glm::value_ptr(model_spaceship));
-	
-	// SET ALL LIGHT SOURCES WITH THIS LIMITED EDITION ONE LINER
-	textureShader->setLightSources(dir_lights_array, point_lights_array, camera.get());
 
 	spaceship->draw(textureShader.get());
+
+	// Radar
+	auto view_projection_location_radar = glGetUniformLocation(textureShader->programHandle, "proj");
+	glUniformMatrix4fv(view_projection_location_radar, 1, GL_FALSE, glm::value_ptr(view_projection));
+	auto& model_radar = radar->modelMatrix;
+	auto model_location_radar = glGetUniformLocation(textureShader->programHandle, "model");
+	glUniformMatrix4fv(model_location_radar, 1, GL_FALSE, glm::value_ptr(model_radar));
+	radar->draw(textureShader.get());
 
 	// Sun
 	sunShader->useShader();
@@ -798,7 +857,7 @@ void draw() {
 	glUniformMatrix4fv(model_location_laser, 1, GL_FALSE, glm::value_ptr(model_laser));
 	auto view_projection_location_laser = glGetUniformLocation(basicShader->programHandle, "proj");
 	glUniformMatrix4fv(view_projection_location_laser, 1, GL_FALSE, glm::value_ptr(view_projection));
-	basicShader->setLightSources(dir_lights_array, point_lights_array, camera.get());
+	basicShader->setLightSources(dir_lights_array, point_lights_array, spot_lights_array, camera.get());
 	laser->draw();
 	
 
@@ -872,6 +931,7 @@ void draw() {
 
 		auto model_location_physXCube = glGetUniformLocation(basicShader->programHandle, "model");
 		glUniformMatrix4fv(model_location_physXCube, 1, GL_FALSE, glm::value_ptr(model_physXCube));
+		physXCube->modelMatrix = glm::scale(physXCube->modelMatrix, glm::vec3(3.0f));
 		physXCube->draw();
 	}
 	delete[] shapes;
@@ -902,13 +962,12 @@ void draw() {
 	glBindTexture(GL_TEXTURE_2D, particle);
 
 	// Update particle system position when spaceship moves
-	glm::vec3 newParticlePos = camera->getPosition() + camera->getFront() * 2.2f + vec3(0, 1.4f, 0);
+	glm::vec3 newParticlePos = camera->getPosition() + camera->getFront() * 2.2f  + camera->getUp() * 1.2f;
 	spaceship->particleSystem.UpdateParticleGenerationPosition(newParticlePos);
 
 	spaceship->particleSystem.SetMatrices(&projection, camera->getPosition(), camera->getPosition() + camera->getFront(), camera->getUp());
 	spaceship->particleSystem.UpdateParticles(time_delta);
 	spaceship->particleSystem.RenderParticles();
-
 
 	/* HUD */
 	//glm::mat4 hudProjectionMat = glm::ortho(0.0f, static_cast<GLfloat>(width), 0.0f, static_cast<GLfloat>(height));

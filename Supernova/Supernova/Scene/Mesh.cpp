@@ -45,7 +45,7 @@ void Mesh::draw(Shader* shader) {
 		GLint matSpecularLoc = glGetUniformLocation(shader->programHandle, "material.specular");
 		GLint matShininessLoc = glGetUniformLocation(shader->programHandle, "material.shininess");
 		glUniform3f(matAmbientLoc, noTextureMaterial->getAmbient().r, noTextureMaterial->getAmbient().g, noTextureMaterial->getAmbient().b);
-		glUniform3f(matDiffuseLoc, noTextureMaterial->getAmbient().r, noTextureMaterial->getAmbient().g, noTextureMaterial->getAmbient().b);
+		glUniform3f(matDiffuseLoc, noTextureMaterial->getDiffuse().r, noTextureMaterial->getDiffuse().g, noTextureMaterial->getDiffuse().b);
 		glUniform3f(matSpecularLoc, noTextureMaterial->getSpecular().r, noTextureMaterial->getSpecular().g, noTextureMaterial->getSpecular().b);
 		glUniform1f(matShininessLoc, noTextureMaterial->getShininess());
 	}

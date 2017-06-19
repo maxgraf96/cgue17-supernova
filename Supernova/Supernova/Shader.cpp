@@ -151,7 +151,7 @@ void Shader::link() {
 	}
 }
 
-void Shader::setLightSources(supernova::scene::DirectionalLight dirLights[], supernova::scene::PointLight pointLights[], supernova::scene::Camera* camera) {
+void Shader::setLightSources(supernova::scene::DirectionalLight dirLights[], supernova::scene::PointLight pointLights[], supernova::scene::SpotLight spotLights[], supernova::scene::Camera* camera) {
 
 	// Directional lights
 	for (GLuint i = 0; i < 12; i++) {
@@ -202,6 +202,38 @@ void Shader::setLightSources(supernova::scene::DirectionalLight dirLights[], sup
 			pointLights[i].getLinear());
 		glUniform1f(glGetUniformLocation(programHandle, ("pointLights[" + number + "].quadratic").c_str()),
 			pointLights[i].getQuadratic());
+	}
+
+	// Spot lights
+	for (GLuint i = 0; i < 12; i++)
+	{
+		if (!spotLights[i].isInitialized()) continue;
+		supernova::scene::SpotLight test = spotLights[i];
+		string number = to_string(i);
+
+		// Set initialized to true -> the shader will process it
+		glUniform1i(glGetUniformLocation(programHandle, ("spotLights[" + number + "].initialized").c_str()), 1);
+
+		// Position
+		glUniform3f(glGetUniformLocation(programHandle, ("spotLights[" + number + "].position").c_str()),
+			spotLights[i].getPosition().x, spotLights[i].getPosition().y, spotLights[i].getPosition().z);
+
+		// Direction
+		glUniform3f(glGetUniformLocation(programHandle, ("spotLights[" + number + "].direction").c_str()),
+			spotLights[i].getDirection().x, spotLights[i].getDirection().y, spotLights[i].getDirection().z);
+
+		// Cutoff
+		glUniform1f(glGetUniformLocation(programHandle, ("spotLights[" + number + "].cutoff").c_str()),
+			spotLights[i].getCutoff());
+
+		// Outer cutoff
+		glUniform1f(glGetUniformLocation(programHandle, ("spotLights[" + number + "].outercutoff").c_str()),
+			spotLights[i].getOuterCutoff());
+
+		// Color
+		glUniform3f(glGetUniformLocation(programHandle, ("spotLights[" + number + "].color").c_str()),
+			spotLights[i].getDiffuse().r, spotLights[i].getDiffuse().g, spotLights[i].getDiffuse().b);
+
 	}
 
 	// Camera position

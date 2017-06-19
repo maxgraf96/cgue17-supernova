@@ -35,8 +35,19 @@ uniform struct PointLight{
 	int initialized;
 };
 
+#define SPOT_LIGHTS_NR 12
+uniform struct SpotLight {
+	vec3 position;
+	vec3 direction;
+	vec3 color;
+	float cutoff;
+	float outercutoff;
+	int initialized;
+};
+
 uniform DirectionalLight dirLights[DIR_LIGHTS_NR];
 uniform PointLight pointLights[POINT_LIGHTS_NR];
+uniform SpotLight spotLights[SPOT_LIGHTS_NR];
 uniform vec3 cameraPos;
 
 // Calculate directional lights
@@ -84,6 +95,17 @@ vec3 calculatePointLights(PointLight light, vec3 normal, vec3 fragPos, vec3 view
 	return (ambient + diffuse + specular);
 }
 
+// Calculate spot lights
+vec3 calculateSpotLights(SpotLight light, vec3 normal, vec3 fragPos, vec3 viewDir){
+	vec3 lightDir = normalize(light.position - fragPos);
+	float theta = dot(lightDir, normalize(-light.direction));
+	float epsilon   = light.cutoff - light.outercutoff;
+	float intensity = clamp((theta - light.outercutoff) / epsilon, 0.0, 1.0);    
+	float col = max(dot(normal, lightDir), 0.0);
+	vec3 diffuse = texture(material.texture_diffuse, texCoords).rgb * light.color * col;
+	return diffuse * intensity;
+}
+
 void main() {
 
 	// Fragment properties
@@ -102,6 +124,12 @@ void main() {
 	for(int i = 0; i < POINT_LIGHTS_NR; i++){
 		if(pointLights[i].initialized < 1) continue;
 		result += calculatePointLights(pointLights[i], normal, fragPos, viewDir);
+	}
+
+	// Add spot lights
+	for(int i = 0; i < SPOT_LIGHTS_NR; i++){
+		if(spotLights[i].initialized < 1) continue;
+		result += calculateSpotLights(spotLights[i], normal, fragPos, viewDir);
 	}
 
 	fragColor = vec4(result, 1.0f);

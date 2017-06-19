@@ -24,7 +24,7 @@ namespace supernova
 		void useShader() const;
 		GLuint programHandle;
 
-		void setLightSources(supernova::scene::DirectionalLight dirLight[], supernova::scene::PointLight pointLights[], supernova::scene::Camera* camera);
+		void setLightSources(supernova::scene::DirectionalLight dirLight[], supernova::scene::PointLight pointLights[], supernova::scene::SpotLight spotLights[], supernova::scene::Camera* camera);
 
 		/* uniform set functions from http://www.mbsoftworks.sk/index.php?page=tutorials&series=1&tutorial=26 */
 

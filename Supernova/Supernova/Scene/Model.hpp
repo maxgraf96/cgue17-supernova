@@ -36,6 +36,101 @@ namespace supernova {
 			vector<Texture> loadMaterialTextures(aiMaterial* mat, aiTextureType type, string typeName);
 		};
 
+		/* --------------------------- Radar --------------------------- */
+		class Radar
+			: public supernova::scene::Model {
+
+		public:
+			BoundingSphere boundingSphere;
+
+			Radar(glm::mat4& matrix, string const &path) : Model(matrix, path) {
+				// Create radar material
+				vec3 color = vec3(0.92f, 0.94f, 0.95f);
+				float shininess = 16;
+
+				std::unique_ptr<Material> radarMaterial = std::make_unique<Material>(color, color, shininess);
+				for (GLuint i = 0; i < this->meshes.size(); i++) {
+					this->meshes[i].setNoTextureMaterial(radarMaterial.get());
+				}
+			}
+			Radar() : Model(glm::mat4(1.0f), "") {}
+			void update(float time_delta, int pressed, mat4& spaceshipMatrix, bool rotationDirection, bool retracting, bool retracted) {
+				
+				currentDeg += 3.0f * time_delta;
+				if (currentDeg > 360.0f)
+					currentDeg = 0.0f;
+
+				vec3 spaceshipPosition;
+				modelMatrix = glm::rotate(
+					glm::translate(spaceshipMatrix, vec3(0, 0.2f, -5.5)),
+					glm::radians(90.0f), glm::vec3(0, 1, 0));
+
+				// Continuous rotation
+				if (!rotationDirection)
+					modelMatrix = glm::rotate(modelMatrix, currentDeg, glm::vec3(0, 1, 0));
+				else if (rotationDirection)
+					modelMatrix = glm::rotate(modelMatrix, -currentDeg, glm::vec3(0, 1, 0));
+				else
+					modelMatrix = glm::rotate(modelMatrix, -currentDeg, glm::vec3(0, 1, 0));
+				
+				/*if (!retracting) {
+					currentDeg += 3.0f * time_delta;
+					if (currentDeg > 360.0f)
+						currentDeg = 0.0f;
+
+					vec3 spaceshipPosition;
+					modelMatrix = glm::rotate(
+						glm::translate(spaceshipMatrix, vec3(0, 0.2f, -5.5)),
+						glm::radians(90.0f), glm::vec3(0, 1, 0));
+				}
+				
+				// Check if retracting
+				if (retracting) {
+					// rotate until aligned with spaceship
+					if (currentDeg < 1) {
+						currentDeg += 3.0f * time_delta;
+						if (currentDeg > 360.0f)
+							currentDeg = 0.0f;
+
+						if (!rotationDirection)
+							modelMatrix = glm::rotate(modelMatrix, currentDeg, glm::vec3(0, 1, 0));
+						else if (rotationDirection)
+							modelMatrix = glm::rotate(modelMatrix, -currentDeg, glm::vec3(0, 1, 0));
+					}
+					// aligned -> sink into spaceship
+					else {
+						if (!retracted && !sunkenIn) {
+							// sink
+							if (modelMatrix[3][2] < 1.0f) {
+								modelMatrix = glm::translate(modelMatrix, glm::vec3(0, -1, 0) * time_delta);
+							}
+							else {
+								sunkenIn = true;
+								int a = 2;
+							}
+						}
+						else {
+
+						}
+					}
+				}
+				else {
+					// Continuous rotation
+					if (!rotationDirection)
+						modelMatrix = glm::rotate(modelMatrix, currentDeg, glm::vec3(0, 1, 0));
+					else if (rotationDirection)
+						modelMatrix = glm::rotate(modelMatrix, -currentDeg, glm::vec3(0, 1, 0));
+					else
+						modelMatrix = glm::rotate(modelMatrix, -currentDeg, glm::vec3(0, 1, 0));
+				}*/
+			}
+			// Need
+			void update(float time_delta, int pressed) {}
+		private:
+			float currentDeg = 0.0f;
+			bool sunkenIn = false;
+		};
+
 		/* --------------------------- Spaceship --------------------------- */
 		class Spaceship
 			: public supernova::scene::Model {
@@ -55,13 +150,11 @@ namespace supernova {
 				boundingSphere = BoundingSphere(meshes);
 			};
 
-			void update(float time_delta, int pressed) override {
-				//not needed!
-			}
+			void update(float time_delta, int pressed) {}
 
 			//TODO: give all Bounding Spheres to test against!
 			void update(bool forward, bool backward, bool rollLeft, bool rollRight, float xoffset, float yoffset,
-				float time_delta, BoundingSphere* sunSphere) {
+				float time_delta, BoundingSphere* sunSphere, int pressed) {
  				glm::vec3 position = getPosition();
 				glm::vec3 oldPosition = position;
 
@@ -132,15 +225,11 @@ namespace supernova {
 				else {
 					std::cout << "Nothing!" << std::endl;
 				}
-
-				// Update particle system position when spaceship moves
-				glm::vec3 newParticlePos = getPosition() - 8.5f * front;
-				particleSystem.UpdateParticleGenerationPosition(newParticlePos);
 			}
 
 		private:
 			float speed, rotateSpeed, sensitivity;
-			float totalPitch, totalYaw;
+			float totalPitch, totalYaw;			
 		};
 
 		/* --------------------------- Sun --------------------------- */
