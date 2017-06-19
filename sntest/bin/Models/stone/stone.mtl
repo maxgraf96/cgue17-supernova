@@ -1,0 +1,15 @@
+# Blender MTL File: 'stone.blend'
+# Material Count: 1
+
+newmtl stone_mat
+Ns 149.019608
+Ka 1.000000 1.000000 1.000000
+Kd 0.440000 0.440000 0.440000
+Ks 0.000000 0.000000 0.000000
+Ke 0.000000 0.000000 0.000000
+Ni 1.000000
+d 0.500000
+illum 1
+map_Kd stone.png
+map_Bump -bm 0.600000 stone_n.png
+map_Ks  stone_s.png

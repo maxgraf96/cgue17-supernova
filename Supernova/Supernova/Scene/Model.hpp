@@ -60,7 +60,6 @@ namespace supernova {
 				if (currentDeg > 360.0f)
 					currentDeg = 0.0f;
 
-				vec3 spaceshipPosition;
 				modelMatrix = glm::rotate(
 					glm::translate(spaceshipMatrix, vec3(0, 0.2f, -5.5)),
 					glm::radians(90.0f), glm::vec3(0, 1, 0));
@@ -277,6 +276,9 @@ namespace supernova {
 					this->meshes[i].setNoTextureMaterial(material.get());
 				}
 
+				// Make smaller
+				modelMatrix = glm::scale(modelMatrix, glm::vec3(0.9f));
+
 				boundingSphere = BoundingSphere(meshes, modelMatrix);
 			}
 
@@ -293,7 +295,8 @@ namespace supernova {
 			}
 
 			void update(float time_delta, int pressed) override {
-				//do nothing, because asteroid is static!
+				// Make smaller
+				modelMatrix = glm::scale(modelMatrix, glm::vec3(0.9f));
 			}
 
 			bool getDestroyed() {

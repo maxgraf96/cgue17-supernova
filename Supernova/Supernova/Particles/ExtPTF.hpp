@@ -44,11 +44,12 @@ public:
 	void RenderParticles();
 	void UpdateParticles(float fTimePassed);
 
-	void UpdateParticleGenerationPosition(glm::vec3);
+	void UpdateParticleGenerationPosition(glm::vec3 _position);
+	void UpdateParticleDirection(glm::vec3 _direction);
 
 	void SetGeneratorProperties(glm::vec3 a_vGenPosition, glm::vec3 a_vGenVelocityMin, glm::vec3 a_vGenVelocityMax, glm::vec3 a_vGenGravityVector, glm::vec3 a_vGenColor, float a_fGenLifeMin, float a_fGenLifeMax, float a_fGenSize, float fEvery, int a_iNumToGenerate);
 
-	void ClearAllParticles();
+	void DeleteAllParticles();
 	bool ReleaseParticleSystem();
 
 	int GetNumParticles();
@@ -82,7 +83,7 @@ private:
 	glm::vec3 vGenGravityVector;
 	glm::vec3 vGenColor;
 
-	float fGenLifeMin, fGenLifeRange;
+	float fGenLifeMin, fGenLifeRange, genLifeRangeBackup;
 	float fGenSize;
 
 	int iNumToGenerate;

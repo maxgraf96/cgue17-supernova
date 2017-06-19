@@ -13,9 +13,8 @@ namespace supernova {
 			Laser(glm::mat4& matrix, string const &path);
 			~Laser();
 
-			void update(float time_delta, int pressed) override {
-				//not needed!
-			}
+			void update(float time_delta, int pressed, glm::mat4& spaceshipMatrix, glm::vec3 cameraFront);
+			void update(float time_delta, int pressed);
 
 			void setShooting(bool shooting);
 			bool getShooting();

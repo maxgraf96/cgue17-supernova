@@ -248,6 +248,7 @@ void ExtPTF::SetGeneratorProperties(glm::vec3 a_vGenPosition, glm::vec3 a_vGenVe
 
 	fGenLifeMin = a_fGenLifeMin;
 	fGenLifeRange = a_fGenLifeMax - a_fGenLifeMin;
+	genLifeRangeBackup = fGenLifeRange;
 
 	fNextGenerationTime = fEvery;
 	fElapsedTime = 0.8f;
@@ -272,4 +273,16 @@ int ExtPTF::GetNumParticles()
 
 void ExtPTF::UpdateParticleGenerationPosition(glm::vec3 newParticleGenerationPos) {
 	vGenPosition = newParticleGenerationPos;
+}
+
+void ExtPTF::UpdateParticleDirection(glm::vec3 newParticleDirection) {
+	vGenVelocityMin = newParticleDirection;
+	vGenVelocityRange = newParticleDirection * 0.2f;
+}
+
+void ExtPTF::DeleteAllParticles() {
+	fGenLifeRange = 0.0f;
+	UpdateParticles(10.0f);
+	RenderParticles();
+	fGenLifeRange = genLifeRangeBackup;
 }

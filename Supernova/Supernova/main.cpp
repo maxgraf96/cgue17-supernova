@@ -9,8 +9,6 @@
 #include<vector>
 #include "glm/gtx/rotate_vector.hpp"
 #include <map>
-#include <physx-3.4\PxPhysicsAPI.h>
-#include <physx-3.4\extensions\PxSimpleFactory.h>
 
 #include "Shader.hpp"
 #include "Scene/Cube.hpp"
@@ -22,7 +20,6 @@
 #include "Textures\TextureLoader.hpp"
 #include "Scene\Model.hpp"
 #include "Shader.hpp"
-#include "Scene\PhysXCube.hpp"
 #include "Scene\CollisionDetection\BoundingSphere.hpp"
 #include "Scene\CollisionDetection\AABB.hpp"
 #include "Scene\Laser.hpp"
@@ -37,7 +34,6 @@
 
 using namespace supernova;
 using namespace supernova::scene;
-using namespace physx;
 
 void init(GLFWwindow* window);
 void update(float time_delta, int pressed);
@@ -46,9 +42,6 @@ void cleanup();
 void initTextures();
 void prepareFreeTypeCharacters();
 void renderText(std::string text, GLfloat x, GLfloat y, GLfloat scale, glm::vec3 color, std::map<GLchar, Character> chars);
-void initializePhysX();
-void shutdownPhysX();
-bool stepPhysX(float dt);
 
 //make non global later!
 // Shaders
@@ -70,7 +63,6 @@ std::unique_ptr<MovingCube> midCube;
 std::unique_ptr<MovingCube> finishCube;
 std::unique_ptr<TextQuad> textQuad;
 std::unique_ptr<Spaceship> spaceship;
-std::unique_ptr<PhysXCube> physXCube;
 std::unique_ptr<LightCube> lightCube;
 std::unique_ptr<Sun> sun;
 std::unique_ptr<Laser> laser;
@@ -78,6 +70,8 @@ std::unique_ptr<Radar> radar;
 std::unique_ptr<Asteroid> asteroid1;
 std::unique_ptr<Asteroid> asteroid2;
 std::unique_ptr<Asteroid> asteroid3;
+std::unique_ptr<Asteroid> asteroid4;
+std::unique_ptr<Asteroid> asteroid5;
 
 // Camera
 std::unique_ptr<Camera> camera;
@@ -117,19 +111,6 @@ FT_Library ft;
 FT_Face face;
 std::map<GLchar, Character> characters;
 
-//PhysX
-PxFoundation* gFoundation = NULL;
-PxPhysics* gPhysics = NULL;
-PxScene* gScene = NULL;
-PxDefaultCpuDispatcher* gDispatcher = NULL;
-PxMaterial* gMaterial = NULL;
-
-PxDefaultErrorCallback gErrorCallback;
-PxDefaultAllocator gAllocator;
-
-float gAccumulator = 0.0f;
-float gStepSize = 1.0f / 60.0f;
-
 /* vectors that contain light sources. They are subsequently passed to all shaders of objects that are to be lit. lit. */
 std::vector<PointLight> pointLights;
 std::vector<DirectionalLight> dirLights;
@@ -156,6 +137,11 @@ float time_delta = 0;
 
 //for enabling features
 bool frustumCulling = true;
+bool frameTimeDisplay = false;
+bool wireFrame = false;
+bool textureSampling = true;// True bilinear, false nearest neighbor
+int mipMappingQuality = 0; // 0 Off, 1 Nearest neighbor, 2 linear
+bool blending = false;
 
 void main(int argc, char** argv) {
 
@@ -252,9 +238,6 @@ void main(int argc, char** argv) {
 	bool running = true;
 	auto time = glfwGetTime();
 
-	// Wireframe
-	//glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-
 	while (running && !glfwWindowShouldClose(window)) {
 
 		//clear frame and depth buffer
@@ -268,7 +251,7 @@ void main(int argc, char** argv) {
 		/* Camera position console output */
 		std::cout << "frametime:" << time_delta * 1000 << "ms =~" << 1.0 / time_delta << "fps" << std::endl;
 
-		//react to user input (maybe extract key and mouse input to seperate methods!)
+		//react to user input
 		glfwPollEvents();
 
 		if (glfwGetKey(window, GLFW_KEY_ESCAPE)) {
@@ -298,6 +281,16 @@ void main(int argc, char** argv) {
 		else if (glfwGetKey(window, GLFW_KEY_U)) {
 			radarRetracting = true;
 		}
+		else if (glfwGetKey(window, GLFW_KEY_F2)) {
+			frameTimeDisplay = !frameTimeDisplay;
+		}
+		else if (glfwGetKey(window, GLFW_KEY_F3)) {
+			wireFrame = !wireFrame;
+		}
+		else if (glfwGetKey(window, GLFW_KEY_F9)) {
+			blending = !blending;
+		}
+
 
 		//update camera
 		bool forward = false;
@@ -364,10 +357,21 @@ void main(int argc, char** argv) {
 			boundingAsteroid3.setPosition(asteroid3->getPosition());
 			obstacles.push_back(&boundingAsteroid3);
 		}
+		if (!asteroid4->getDestroyed()) {
+			BoundingSphere boundingAsteroid4 = asteroid4->boundingSphere;
+			boundingAsteroid4.setPosition(asteroid4->getPosition());
+			obstacles.push_back(&boundingAsteroid4);
+		}
+		if (!asteroid5->getDestroyed()) {
+			BoundingSphere boundingAsteroid5 = asteroid5->boundingSphere;
+			boundingAsteroid5.setPosition(asteroid5->getPosition());
+			obstacles.push_back(&boundingAsteroid5);
+		}
 
 		//update spaceship
 		spaceship->update(forward, backward, rollLeft, rollRight, xoffset, yoffset, time_delta, obstacles);
 		radar->update(time_delta, pressed, spaceship->modelMatrix, radarRotationDirection, radarRetracting, radarRetracted);
+		laser->update(time_delta, pressed, spaceship->modelMatrix, camera->getFront());
 
 		//update camera
 		glm::vec3  cameraFront = spaceship->front;
@@ -390,119 +394,133 @@ void main(int argc, char** argv) {
 			asteroid1->detectHit(&boundingLaser, time_delta);
 			asteroid2->detectHit(&boundingLaser, time_delta);
 			asteroid3->detectHit(&boundingLaser, time_delta);
+			asteroid4->detectHit(&boundingLaser, time_delta);
+			asteroid5->detectHit(&boundingLaser, time_delta);
 		}
 
 		//generate view matrix
 		view = camera->viewMatrix;
 
-		//simulate PhysX (do somewhere else?)
-		stepPhysX(time_delta);
-
 		/*****START RENDER*****/
 		//based on the framebuffers tutorial from "Learn OpenGL" (https://learnopengl.com/#!Advanced-OpenGL/Framebuffers)
 
 		//first pass, draw to framebuffer
-		//glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 		glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
 		glEnable(GL_DEPTH_TEST); //could cause trouble
 		glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+		
+		if (wireFrame)
+			glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+		else
+			glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+		if (blending) {
+			glEnable(GL_BLEND);
+			glBlendFunc(GL_SRC_ALPHA, GL_ONE);
+		}
+		else {
+			glDisable(GL_BLEND);
+		}
 
 		draw();
+		
+		glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 
 		/******POST PROCESSING******/
-		// Motion blur
-		glBindFramebuffer(GL_FRAMEBUFFER, motionBlurFBO);
-		motionBlurShader->useShader();
+		{
+			// Motion blur
+			glBindFramebuffer(GL_FRAMEBUFFER, motionBlurFBO);
+			motionBlurShader->useShader();
 
-		// Current model->view matrix 
-		glm::mat4 inverseCurrentVP = glm::inverse(camera->viewMatrix * projection);
-		motionBlurShader->setUniform("inverseVP", inverseCurrentVP);
-		motionBlurShader->setUniform("previousVP", previousVP);
-		motionBlurShader->setUniform("fps", 1.0f / time_delta);
+			// Current model->view matrix 
+			glm::mat4 inverseCurrentVP = glm::inverse(camera->viewMatrix * projection);
+			motionBlurShader->setUniform("inverseVP", inverseCurrentVP);
+			motionBlurShader->setUniform("previousVP", previousVP);
+			motionBlurShader->setUniform("fps", 1.0f / time_delta);
 
-		glActiveTexture(GL_TEXTURE0);
-		glBindTexture(GL_TEXTURE_2D, texColorBuffer[0]);
-		motionBlurShader->setUniform("texColor", 0);
-
-		glActiveTexture(GL_TEXTURE1);
-		glBindTexture(GL_TEXTURE_2D, depthBuffer);
-		motionBlurShader->setUniform("texDepth", 1);
-
-		//render quad
-		glBindVertexArray(quadVAO);
-		glDrawArrays(GL_TRIANGLES, 0, 6);
-		glBindVertexArray(0);
-
-		glBindFramebuffer(GL_FRAMEBUFFER, 0);
-		
-		//Blur bright colors using pingpong framebuffers
-		bool horizontal = true;
-		bool first_iter = true;
-		int amount = 10;
-		blurShader->useShader();
-
-		for (GLuint i = 0; i < amount; i++) {
-			glBindFramebuffer(GL_FRAMEBUFFER, pingpongFBO[horizontal]);
-			blurShader->setUniform("horizontal", horizontal);
 			glActiveTexture(GL_TEXTURE0);
-			glBindTexture(GL_TEXTURE_2D, first_iter ? texColorBuffer[1] : pingpongBuffer[!horizontal]);
+			glBindTexture(GL_TEXTURE_2D, texColorBuffer[0]);
+			motionBlurShader->setUniform("texColor", 0);
+
+			glActiveTexture(GL_TEXTURE1);
+			glBindTexture(GL_TEXTURE_2D, depthBuffer);
+			motionBlurShader->setUniform("texDepth", 1);
 
 			//render quad
 			glBindVertexArray(quadVAO);
 			glDrawArrays(GL_TRIANGLES, 0, 6);
 			glBindVertexArray(0);
 
-			horizontal = !horizontal;
-			if (first_iter) {
-				first_iter = false;
+			glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+			//Blur bright colors using pingpong framebuffers
+			bool horizontal = true;
+			bool first_iter = true;
+			int amount = 10;
+			blurShader->useShader();
+
+			for (GLuint i = 0; i < amount; i++) {
+				glBindFramebuffer(GL_FRAMEBUFFER, pingpongFBO[horizontal]);
+				blurShader->setUniform("horizontal", horizontal);
+				glActiveTexture(GL_TEXTURE0);
+				glBindTexture(GL_TEXTURE_2D, first_iter ? texColorBuffer[1] : pingpongBuffer[!horizontal]);
+
+				//render quad
+				glBindVertexArray(quadVAO);
+				glDrawArrays(GL_TRIANGLES, 0, 6);
+				glBindVertexArray(0);
+
+				horizontal = !horizontal;
+				if (first_iter) {
+					first_iter = false;
+				}
 			}
+
+			//Lens Flares
+			lensFlareShader->useShader();
+			int ghosts = 4; //number of ghost samples
+			float ghostDispersal = 0.5;
+			float haloWidth = 0.5;
+			float distortion = 3.0;
+
+			glBindFramebuffer(GL_FRAMEBUFFER, lensFlaresFBO);
+			lensFlareShader->setUniform("ghosts", ghosts);
+			lensFlareShader->setUniform("ghostDispersal", ghostDispersal);
+			lensFlareShader->setUniform("haloWidth", haloWidth);
+			lensFlareShader->setUniform("distortion", distortion);
+
+			glActiveTexture(GL_TEXTURE0);
+			glBindTexture(GL_TEXTURE_2D, texColorBuffer[1]);
+			glActiveTexture(GL_TEXTURE1);
+			glBindTexture(GL_TEXTURE_2D, lensflaresColor);
+			//render quad
+			glBindVertexArray(quadVAO);
+			glDrawArrays(GL_TRIANGLES, 0, 6);
+			glBindVertexArray(0);
+
+			/******RENDER TO SCREEN******/
+			glBindFramebuffer(GL_FRAMEBUFFER, 0); //using default to render to screen
+			glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
+			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+			//maybe put into method (e.g. renderToScreen)
+			screenShader->useShader();
+			glActiveTexture(GL_TEXTURE0);
+			glBindTexture(GL_TEXTURE_2D, texColorBuffer[0]);
+			glActiveTexture(GL_TEXTURE1);
+			glBindTexture(GL_TEXTURE_2D, pingpongBuffer[!horizontal]);
+			glActiveTexture(GL_TEXTURE2);
+			glBindTexture(GL_TEXTURE_2D, lensFlaresBuffer);
+			glActiveTexture(GL_TEXTURE3);
+			glBindTexture(GL_TEXTURE_2D, motionBlurColorOut);
+
+			glBindVertexArray(quadVAO);
+			glDrawArrays(GL_TRIANGLES, 0, 6);
+			glBindVertexArray(0);
+
+			/*****END OF RENDER*****/
+			previousVP = camera->viewMatrix * projection;// previous vp = current vp
 		}
-
-		//Lens Flares
-		lensFlareShader->useShader();
-		int ghosts = 4; //number of ghost samples
-		float ghostDispersal = 0.5;
-		float haloWidth = 0.5;
-		float distortion = 3.0;
-
-		glBindFramebuffer(GL_FRAMEBUFFER, lensFlaresFBO);
-		lensFlareShader->setUniform("ghosts", ghosts);
-		lensFlareShader->setUniform("ghostDispersal", ghostDispersal);
-		lensFlareShader->setUniform("haloWidth", haloWidth);
-		lensFlareShader->setUniform("distortion", distortion);
-		
-		glActiveTexture(GL_TEXTURE0);
-		glBindTexture(GL_TEXTURE_2D, texColorBuffer[1]);
-		glActiveTexture(GL_TEXTURE1);
-		glBindTexture(GL_TEXTURE_2D, lensflaresColor);
-		//render quad
-		glBindVertexArray(quadVAO);
-		glDrawArrays(GL_TRIANGLES, 0, 6);
-		glBindVertexArray(0);
-
-		/******RENDER TO SCREEN******/
-		glBindFramebuffer(GL_FRAMEBUFFER, 0); //using default to render to screen
-		glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-		//maybe put into method (e.g. renderToScreen)
-		screenShader->useShader();
-		glActiveTexture(GL_TEXTURE0);
-		glBindTexture(GL_TEXTURE_2D, texColorBuffer[0]);
-		glActiveTexture(GL_TEXTURE1);
-		glBindTexture(GL_TEXTURE_2D, pingpongBuffer[!horizontal]);
-		glActiveTexture(GL_TEXTURE2);
-		glBindTexture(GL_TEXTURE_2D, lensFlaresBuffer);
-		glActiveTexture(GL_TEXTURE3);
-		glBindTexture(GL_TEXTURE_2D, motionBlurColorOut);
-		
-		glBindVertexArray(quadVAO);
-		glDrawArrays(GL_TRIANGLES, 0, 6);
-		glBindVertexArray(0);
-		
-		/*****END OF RENDER*****/
-		previousVP = camera->viewMatrix * projection;// previous vp = current vp
 
 		// Swap buffers
 		glfwSwapBuffers(window);
@@ -540,9 +558,6 @@ void main(int argc, char** argv) {
 }
 
 void init(GLFWwindow* window) {
-	//initialize PhysX
-	initializePhysX();
-
 	
 	/* Enable Blending for FreeType (HUD) */
 	glEnable(GL_BLEND);
@@ -612,7 +627,6 @@ void init(GLFWwindow* window) {
 	// camera
 	radar = std::make_unique<Radar>(glm::mat4(1.0f), "Models/radar/radar.obj");
 	spaceship = std::make_unique<Spaceship>(glm::mat4(1.0f), "Models/spaceship/spaceship.obj");
-	spaceship->translate(vec3(0.0f, 0.0f, 0.0f));
 
 	glm::vec3  cameraFront = spaceship->front;
 	glm::vec3  cameraUp = spaceship->up * -1.0f;
@@ -630,18 +644,22 @@ void init(GLFWwindow* window) {
 	finishCube = std::make_unique<MovingCube>(glm::mat4(1.0f), basicShader.get(), camera.get(), new Metal(vec3(0.905f, 0.298f, 0.235f)), 25.0f);
 
 	laser = std::make_unique<Laser>(glm::mat4(1.0f), "Models/cube/cube.obj");
-	laser->modelMatrix = glm::scale(laser->modelMatrix, glm::vec3(0.2, 0.2, 100.0));
-	laser->modelMatrix = glm::translate(laser->modelMatrix, camera->getFront() *1.0f);
 
 	//Create Interaction things, placeholders for asteroids
-	asteroid1 = std::make_unique<Asteroid>(glm::mat4(1.0f), "Models/newsun/newsun.obj");
+	asteroid1 = std::make_unique<Asteroid>(glm::mat4(1.0f), "Models/meteor/mymeteor.obj");
 	asteroid1->modelMatrix = glm::translate(asteroid1->modelMatrix, glm::vec3(20.0f, 60.0f, -100.0f));
 
-	asteroid2 = std::make_unique<Asteroid>(glm::mat4(1.0f), "Models/newsun/newsun.obj");
+	asteroid2 = std::make_unique<Asteroid>(glm::mat4(1.0f), "Models/meteor/mymeteor.obj");
 	asteroid2->modelMatrix = glm::translate(asteroid2->modelMatrix, glm::vec3(-10.0f, -10.0f, 130.0f));
 
-	asteroid3 = std::make_unique<Asteroid>(glm::mat4(1.0f), "Models/newsun/newsun.obj");
+	asteroid3 = std::make_unique<Asteroid>(glm::mat4(1.0f), "Models/meteor/mymeteor.obj");
 	asteroid3->modelMatrix = glm::translate(asteroid3->modelMatrix, glm::vec3(0.0f, -70.0f, 0.0f));
+
+	asteroid4 = std::make_unique<Asteroid>(glm::mat4(1.0f), "Models/meteor/mymeteor.obj");
+	asteroid4->modelMatrix = glm::translate(asteroid4->modelMatrix, glm::vec3(40.0f, -40.0f, 50.0f));
+
+	asteroid5 = std::make_unique<Asteroid>(glm::mat4(1.0f), "Models/meteor/mymeteor.obj");
+	asteroid5->modelMatrix = glm::translate(asteroid5->modelMatrix, glm::vec3(-25.0f, -90.0f, 80.0f));
 
 	/* Create lights */
 	/* DIRECTIONAL */
@@ -682,120 +700,107 @@ void init(GLFWwindow* window) {
 	
 	
 	/******SETUP FRAMEBUFFER******/
-	glGenFramebuffers(1, &framebuffer);
-	glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
+	{
 
-	//generate two textures (colorbuffers) and attach them to framebuffer
-	glGenTextures(2, texColorBuffer);
-	for (GLuint i = 0; i < 2; i++) {
-		glBindTexture(GL_TEXTURE_2D, texColorBuffer[i]);
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+		glGenFramebuffers(1, &framebuffer);
+		glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
+
+		//generate two textures (colorbuffers) and attach them to framebuffer
+		glGenTextures(2, texColorBuffer);
+		for (GLuint i = 0; i < 2; i++) {
+			glBindTexture(GL_TEXTURE_2D, texColorBuffer[i]);
+			glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+			glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 + i, GL_TEXTURE_2D, texColorBuffer[i], 0);
+		}
+
+		// Add motion blur depth buffer -> this one writes to a texture instead of being a renderbuffer
+		glGenTextures(1, &depthBuffer);
+		glBindTexture(GL_TEXTURE_2D, depthBuffer);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-
-		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 + i, GL_TEXTURE_2D, texColorBuffer[i], 0);
-	}
-
-	// Add motion blur depth buffer -> this one writes to a texture instead of being a renderbuffer
-	glGenTextures(1, &depthBuffer);
-	glBindTexture(GL_TEXTURE_2D, depthBuffer);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT24, width, height, 0, GL_DEPTH_COMPONENT, GL_FLOAT, 0);
-	glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, depthBuffer, 0);
-
-	//tell OpenGL this framebuffer will use multiple color attachments
-	GLuint attachments[2] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1 };
-	glDrawBuffers(2, attachments);
-
-	//check if framebuffer is complete
-	if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
-		std::cout << "ERROR::FRAMEBUFFER:: Framebuffer is not complete!" << std::endl;
-	}
-	glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
-	/******SETUP PINGPONG FRAMEBUFFERS******/
-	//based on the Bloom tutorial from "Learn OpenGL" (https://learnopengl.com/#!Advanced-Lighting/Bloom)
-	glGenFramebuffers(2, pingpongFBO);
-	glGenTextures(2, pingpongBuffer);
-	for (GLuint i = 0; i < 2; i++) {
-		glBindFramebuffer(GL_FRAMEBUFFER, pingpongFBO[i]);
-		glBindTexture(GL_TEXTURE_2D, pingpongBuffer[i]);
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT24, width, height, 0, GL_DEPTH_COMPONENT, GL_FLOAT, 0);
+		glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, depthBuffer, 0);
 
-		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, pingpongBuffer[i], 0);
+		//tell OpenGL this framebuffer will use multiple color attachments
+		GLuint attachments[2] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1 };
+		glDrawBuffers(2, attachments);
 
 		//check if framebuffer is complete
 		if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
 			std::cout << "ERROR::FRAMEBUFFER:: Framebuffer is not complete!" << std::endl;
 		}
+		glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+		/******SETUP PINGPONG FRAMEBUFFERS******/
+		//based on the Bloom tutorial from "Learn OpenGL" (https://learnopengl.com/#!Advanced-Lighting/Bloom)
+		glGenFramebuffers(2, pingpongFBO);
+		glGenTextures(2, pingpongBuffer);
+		for (GLuint i = 0; i < 2; i++) {
+			glBindFramebuffer(GL_FRAMEBUFFER, pingpongFBO[i]);
+			glBindTexture(GL_TEXTURE_2D, pingpongBuffer[i]);
+			glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+			glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, pingpongBuffer[i], 0);
+
+			//check if framebuffer is complete
+			if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+				std::cout << "ERROR::FRAMEBUFFER:: Framebuffer is not complete!" << std::endl;
+			}
+		}
+		glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+		/******SETUP LENSFLARES FRAMEBUFFER******/
+		//based on the lensflares tutorial from John Chapman (http://john-chapman-graphics.blogspot.co.at/2013/02/pseudo-lens-flare.html)
+		glGenFramebuffers(1, &lensFlaresFBO);
+		glBindFramebuffer(GL_FRAMEBUFFER, lensFlaresFBO);
+
+		glGenTextures(1, &lensFlaresBuffer);
+		glBindTexture(GL_TEXTURE_2D, lensFlaresBuffer);
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, lensFlaresBuffer, 0);
+
+		if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+			std::cout << "ERROR::FRAMEBUFFER:: Framebuffer is not complete!" << std::endl;
+		}
+		glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+		/******SETUP MOTION BLUR FRAMEBUFFER******/
+		glGenFramebuffers(1, &motionBlurFBO);
+		glBindFramebuffer(GL_FRAMEBUFFER, motionBlurFBO);
+
+		glGenTextures(1, &motionBlurColorOut);
+		glBindTexture(GL_TEXTURE_2D, motionBlurColorOut);
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, motionBlurColorOut, 0);
+
+		if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+			std::cout << "ERROR::FRAMEBUFFER:: Framebuffer is not complete!" << std::endl;
+		}
+		glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
 	}
-	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
-	/******SETUP LENSFLARES FRAMEBUFFER******/
-	//based on the lensflares tutorial from John Chapman (http://john-chapman-graphics.blogspot.co.at/2013/02/pseudo-lens-flare.html)
-	glGenFramebuffers(1, &lensFlaresFBO);
-	glBindFramebuffer(GL_FRAMEBUFFER, lensFlaresFBO);
-
-	glGenTextures(1, &lensFlaresBuffer);
-	glBindTexture(GL_TEXTURE_2D, lensFlaresBuffer);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-
-	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, lensFlaresBuffer, 0);
-
-	if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
-		std::cout << "ERROR::FRAMEBUFFER:: Framebuffer is not complete!" << std::endl;
-	}
-	glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
-	/******SETUP MOTION BLUR FRAMEBUFFER******/
-	glGenFramebuffers(1, &motionBlurFBO);
-	glBindFramebuffer(GL_FRAMEBUFFER, motionBlurFBO);
-
-	glGenTextures(1, &motionBlurColorOut);
-	glBindTexture(GL_TEXTURE_2D, motionBlurColorOut);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-
-	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, motionBlurColorOut, 0);
-
-	if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
-		std::cout << "ERROR::FRAMEBUFFER:: Framebuffer is not complete!" << std::endl;
-	}
-	glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
-	//Create PhysXcube:
-	PxReal density = 1.0f;
-	PxTransform transform(PxVec3(0.0f, 10.0f, 0.0f), PxQuat(PxIDENTITY::PxIdentity));
-	PxVec3 dimensions(0.5f, 0.5f, 0.5f);
-	PxBoxGeometry geometry(dimensions);
-
-	PxRigidDynamic *actor = PxCreateDynamic(*gPhysics, transform, geometry, *gMaterial, density);
-	actor->setAngularDamping(0.75f);
-	actor->setLinearVelocity(PxVec3(0, 0, 0));
-	if (!actor) {
-		cerr << "create actor failed" << endl;
-	}
-	gScene->addActor(*actor);
-	PxRigidActor* box = actor;
-
-	physXCube = std::make_unique<PhysXCube>(glm::mat4(1.0f), box, basicShader.get(), new Metal(vec3(0.905f, 0.298f, 0.235f)));
-	
 	// HUD
 	textQuad = std::make_unique<TextQuad>(glm::mat4(1.0f), hudShader.get());
 
@@ -869,21 +874,6 @@ void draw() {
 	auto view_projection = projection * view;
 
 	/*-------------------- Get light sources --------------------- */
-	/* Light Cube */
-	lightCubeShader->useShader();
-	auto view_projection_location_light_cube = glGetUniformLocation(lightCubeShader->programHandle, "proj");
-	glUniformMatrix4fv(view_projection_location_light_cube, 1, GL_FALSE, glm::value_ptr(view_projection));
-
-	// make light cube a little bit smaller and put it schräg above other cube
-	auto& model_light_cube = glm::scale(lightCube->modelMatrix, glm::vec3(3));
-	model_light_cube = glm::translate(model_light_cube, glm::vec3(2.5f, -5.5f, -30));
-	auto model_location_light_cube = glGetUniformLocation(lightCubeShader->programHandle, "model");
-	glUniformMatrix4fv(model_location_light_cube, 1, GL_FALSE, glm::value_ptr(model_light_cube));
-	lightCube->draw();
-
-	// view(camera) info
-	GLint cameraPosLoc;
-
 	// Convert light vectors to arrays to pass them to shaders
 	PointLight point_lights_array[20];
 	DirectionalLight dir_lights_array[12];
@@ -892,92 +882,146 @@ void draw() {
 	std::copy(dirLights.begin(), dirLights.end(), dir_lights_array);
 	std::copy(spotLights.begin(), spotLights.end(), spot_lights_array);
 
+	/* Light Cube */
+	{
+		//lightCubeShader->useShader();
+		//auto view_projection_location_light_cube = glGetUniformLocation(lightCubeShader->programHandle, "proj");
+		//glUniformMatrix4fv(view_projection_location_light_cube, 1, GL_FALSE, glm::value_ptr(view_projection));
+
+		//// make light cube a little bit smaller and put it schräg above other cube
+		//auto& model_light_cube = glm::scale(lightCube->modelMatrix, glm::vec3(3));
+		//model_light_cube = glm::translate(model_light_cube, glm::vec3(2.5f, -5.5f, -30));
+		//auto model_location_light_cube = glGetUniformLocation(lightCubeShader->programHandle, "model");
+		//glUniformMatrix4fv(model_location_light_cube, 1, GL_FALSE, glm::value_ptr(model_light_cube));
+		//lightCube->draw();
+	}
+
+
+	// Laser cube
+	{
+		basicShader->useShader();
+		basicShader->setLightSources(dir_lights_array, point_lights_array, spot_lights_array, camera.get());
+		auto& model_laser = laser->modelMatrix;
+		auto model_location_laser = glGetUniformLocation(basicShader->programHandle, "model");
+		glUniformMatrix4fv(model_location_laser, 1, GL_FALSE, glm::value_ptr(model_laser));
+		auto view_projection_location_laser = glGetUniformLocation(basicShader->programHandle, "proj");
+		glUniformMatrix4fv(view_projection_location_laser, 1, GL_FALSE, glm::value_ptr(view_projection));
+		//laser->draw(basicShader.get());
+	}
+
+
+	// view(camera) info
+	GLint cameraPosLoc;
+
 	/*-------------------- Textured objects --------------------- */
-	textureShader->useShader();
-	// SET ALL LIGHT SOURCES WITH THIS LIMITED EDITION ONE LINER
-	textureShader->setLightSources(dir_lights_array, point_lights_array, spot_lights_array, camera.get());
+	{
+		textureShader->useShader();
+		// SET ALL LIGHT SOURCES WITH THIS LIMITED EDITION ONE LINER
+		textureShader->setLightSources(dir_lights_array, point_lights_array, spot_lights_array, camera.get());
 
-	// Spaceship
-	auto view_projection_location_spaceship = glGetUniformLocation(textureShader->programHandle, "proj");
-	glUniformMatrix4fv(view_projection_location_spaceship, 1, GL_FALSE, glm::value_ptr(view_projection));
-	auto& model_spaceship = spaceship->modelMatrix;
-	auto model_location_spaceship = glGetUniformLocation(textureShader->programHandle, "model");
-	glUniformMatrix4fv(model_location_spaceship, 1, GL_FALSE, glm::value_ptr(model_spaceship));
+		// Spaceship
+		auto view_projection_location_spaceship = glGetUniformLocation(textureShader->programHandle, "proj");
+		glUniformMatrix4fv(view_projection_location_spaceship, 1, GL_FALSE, glm::value_ptr(view_projection));
+		auto& model_spaceship = spaceship->modelMatrix;
+		auto model_location_spaceship = glGetUniformLocation(textureShader->programHandle, "model");
+		glUniformMatrix4fv(model_location_spaceship, 1, GL_FALSE, glm::value_ptr(model_spaceship));
+		spaceship->draw(textureShader.get());
 
-	spaceship->draw(textureShader.get());
+		// Radar
+		auto view_projection_location_radar = glGetUniformLocation(textureShader->programHandle, "proj");
+		glUniformMatrix4fv(view_projection_location_radar, 1, GL_FALSE, glm::value_ptr(view_projection));
+		auto& model_radar = radar->modelMatrix;
+		auto model_location_radar = glGetUniformLocation(textureShader->programHandle, "model");
+		glUniformMatrix4fv(model_location_radar, 1, GL_FALSE, glm::value_ptr(model_radar));
+		radar->draw(textureShader.get());
 
-	// Radar
-	auto view_projection_location_radar = glGetUniformLocation(textureShader->programHandle, "proj");
-	glUniformMatrix4fv(view_projection_location_radar, 1, GL_FALSE, glm::value_ptr(view_projection));
-	auto& model_radar = radar->modelMatrix;
-	auto model_location_radar = glGetUniformLocation(textureShader->programHandle, "model");
-	glUniformMatrix4fv(model_location_radar, 1, GL_FALSE, glm::value_ptr(model_radar));
-	radar->draw(textureShader.get());
-
-	// Sun
-	sunShader->useShader();
-	auto view_projection_location_sun = glGetUniformLocation(sunShader->programHandle, "proj");
-	glUniformMatrix4fv(view_projection_location_sun, 1, GL_FALSE, glm::value_ptr(view_projection));
-
+	}
 
 	//View Frustum Culling:
 	BoundingSphere boundingSun = sun->boundingSphere;
 	boundingSun.setPosition(sun->getPosition());
 
 	if (!frustumCulling || !(viewFrustum.testSphere(&boundingSun) == viewFrustum.OUTSIDE)) {
+		// Sun
+		sunShader->useShader();
+		auto view_projection_location_sun = glGetUniformLocation(sunShader->programHandle, "proj");
+		glUniformMatrix4fv(view_projection_location_sun, 1, GL_FALSE, glm::value_ptr(view_projection));
 		auto& model_sun = sun->modelMatrix;
 		auto model_location_sun = glGetUniformLocation(sunShader->programHandle, "model");
 		glUniformMatrix4fv(model_location_sun, 1, GL_FALSE, glm::value_ptr(model_sun));
 		sun->draw(sunShader.get());
 	}
 
-	/*Asteroids*/
 	basicShader->useShader();
+	/*Asteroids*/
+	{
+		auto view_projection_location_asteroid = glGetUniformLocation(basicShader->programHandle, "proj");
+		glUniformMatrix4fv(view_projection_location_asteroid, 1, GL_FALSE, glm::value_ptr(view_projection));
 
-	auto& model_laser = laser->modelMatrix;
-	auto model_location_laser = glGetUniformLocation(basicShader->programHandle, "model");
-	glUniformMatrix4fv(model_location_laser, 1, GL_FALSE, glm::value_ptr(model_laser));
-	auto view_projection_location_laser = glGetUniformLocation(basicShader->programHandle, "proj");
-	glUniformMatrix4fv(view_projection_location_laser, 1, GL_FALSE, glm::value_ptr(view_projection));
-	basicShader->setLightSources(dir_lights_array, point_lights_array, spot_lights_array, camera.get());
-	laser->draw();
-	
-	auto view_projection_location_asteroid = glGetUniformLocation(basicShader->programHandle, "proj");
-	glUniformMatrix4fv(view_projection_location_asteroid, 1, GL_FALSE, glm::value_ptr(view_projection));
+		BoundingSphere boundingAsteroid1 = asteroid1->boundingSphere;
+		boundingAsteroid1.setPosition(asteroid1->getPosition());
 
-	basicShader->setLightSources(dir_lights_array, point_lights_array, spot_lights_array, camera.get());
+		if (!frustumCulling || !(viewFrustum.testSphere(&boundingAsteroid1) == viewFrustum.OUTSIDE)) {
+			if (!asteroid1->getDestroyed()) {
+				auto& model_asteroid1 = asteroid1->modelMatrix;
+				auto model_location_asteroid1 = glGetUniformLocation(basicShader->programHandle, "model");
+				glUniformMatrix4fv(model_location_asteroid1, 1, GL_FALSE, glm::value_ptr(model_asteroid1));
 
-	BoundingSphere boundingAsteroid1 = asteroid1->boundingSphere;
-	boundingAsteroid1.setPosition(asteroid1->getPosition());
+				asteroid1->draw(basicShader.get());
+			}
+		}
 
-	if (!asteroid1->getDestroyed() || !frustumCulling || !(viewFrustum.testSphere(&boundingAsteroid1) == viewFrustum.OUTSIDE)) {
-		auto& model_asteroid1 = asteroid1->modelMatrix;
-		auto model_location_asteroid1 = glGetUniformLocation(basicShader->programHandle, "model");
-		glUniformMatrix4fv(model_location_asteroid1, 1, GL_FALSE, glm::value_ptr(model_asteroid1));
+		BoundingSphere boundingAsteroid2 = asteroid2->boundingSphere;
+		boundingAsteroid2.setPosition(asteroid2->getPosition());
 
-		asteroid1->draw(basicShader.get());
-	}
+		if (!frustumCulling || !(viewFrustum.testSphere(&boundingAsteroid2) == viewFrustum.OUTSIDE)) {
+			if (!asteroid2->getDestroyed()) {
+				auto& model_asteroid2 = asteroid2->modelMatrix;
+				auto model_location_asteroid2 = glGetUniformLocation(basicShader->programHandle, "model");
+				glUniformMatrix4fv(model_location_asteroid2, 1, GL_FALSE, glm::value_ptr(model_asteroid2));
 
-	BoundingSphere boundingAsteroid2 = asteroid2->boundingSphere;
-	boundingAsteroid2.setPosition(asteroid2->getPosition());
+				asteroid2->draw(basicShader.get());
+			}
+		}
 
-	if (!asteroid2->getDestroyed() || !frustumCulling || !(viewFrustum.testSphere(&boundingAsteroid2) == viewFrustum.OUTSIDE)) {
-		auto& model_asteroid2 = asteroid2->modelMatrix;
-		auto model_location_asteroid2 = glGetUniformLocation(basicShader->programHandle, "model");
-		glUniformMatrix4fv(model_location_asteroid2, 1, GL_FALSE, glm::value_ptr(model_asteroid2));
+		BoundingSphere boundingAsteroid3 = asteroid3->boundingSphere;
+		boundingAsteroid3.setPosition(asteroid3->getPosition());
 
-		asteroid2->draw(basicShader.get());
-	}
+		if (!frustumCulling || !(viewFrustum.testSphere(&boundingAsteroid3) == viewFrustum.OUTSIDE)) {
+			if (!asteroid3->getDestroyed()) {
+				auto& model_asteroid3 = asteroid3->modelMatrix;
+				auto model_location_asteroid3 = glGetUniformLocation(basicShader->programHandle, "model");
+				glUniformMatrix4fv(model_location_asteroid3, 1, GL_FALSE, glm::value_ptr(model_asteroid3));
 
-	BoundingSphere boundingAsteroid3 = asteroid3->boundingSphere;
-	boundingAsteroid3.setPosition(asteroid3->getPosition());
+				asteroid3->draw(basicShader.get());
+			}
+		}
 
-	if (!asteroid3->getDestroyed() || !frustumCulling || !(viewFrustum.testSphere(&boundingAsteroid3) == viewFrustum.OUTSIDE)) {
-		auto& model_asteroid3 = asteroid3->modelMatrix;
-		auto model_location_asteroid3 = glGetUniformLocation(basicShader->programHandle, "model");
-		glUniformMatrix4fv(model_location_asteroid3, 1, GL_FALSE, glm::value_ptr(model_asteroid3));
+		BoundingSphere boundingAsteroid4 = asteroid4->boundingSphere;
+		boundingAsteroid4.setPosition(asteroid4->getPosition());
 
-		asteroid3->draw(basicShader.get());
+		if (!frustumCulling || !(viewFrustum.testSphere(&boundingAsteroid4) == viewFrustum.OUTSIDE)) {
+			if (!asteroid4->getDestroyed()) {
+				auto& model_asteroid4 = asteroid4->modelMatrix;
+				auto model_location_asteroid4 = glGetUniformLocation(basicShader->programHandle, "model");
+				glUniformMatrix4fv(model_location_asteroid4, 1, GL_FALSE, glm::value_ptr(model_asteroid4));
+
+				asteroid4->draw(basicShader.get());
+			}
+		}
+
+		BoundingSphere boundingAsteroid5 = asteroid5->boundingSphere;
+		boundingAsteroid5.setPosition(asteroid5->getPosition());
+
+		if (!frustumCulling || !(viewFrustum.testSphere(&boundingAsteroid5) == viewFrustum.OUTSIDE)) {
+			if (!asteroid5->getDestroyed()) {
+				auto& model_asteroid5 = asteroid5->modelMatrix;
+				auto model_location_asteroid5 = glGetUniformLocation(basicShader->programHandle, "model");
+				glUniformMatrix4fv(model_location_asteroid5, 1, GL_FALSE, glm::value_ptr(model_asteroid5));
+
+				asteroid5->draw(basicShader.get());
+			}
+		}
 	}
 
 	{
@@ -1033,99 +1077,85 @@ void draw() {
 	}
 	basicShader->useShader();
 
-	auto view_projection_location_physx = glGetUniformLocation(basicShader->programHandle, "proj");
-	glUniformMatrix4fv(view_projection_location_physx, 1, GL_FALSE, glm::value_ptr(view_projection));
-
-	basicShader->setLightSources(dir_lights_array, point_lights_array, spot_lights_array, camera.get());
-
-	PhysXCube:
-	PxRigidActor* box = physXCube->actor;
-	PxU32 nShapes = box->getNbShapes();
-	PxShape** shapes = new PxShape*[nShapes];
-
-	box->getShapes(shapes, nShapes);
-	while (nShapes--) {
-		//should switch geometry type here!
-		PxShape* shape = shapes[nShapes];
-		PxMat44 shapePose(PxShapeExt::getGlobalPose(*shape, *box));
-
-		//changed the y-coordinates to make it upside down
-		glm::mat4 model_physXCube = glm::mat4(
-			shapePose.column0.x, shapePose.column0.y, shapePose.column0.z, shapePose.column0.w,
-			shapePose.column1.x, shapePose.column1.y, shapePose.column1.z, shapePose.column1.w,
-			shapePose.column2.x, shapePose.column2.y, shapePose.column2.z, shapePose.column2.w,
-			shapePose.column3.x, shapePose.column3.y, shapePose.column3.z, shapePose.column3.w);
-
-		auto model_location_physXCube = glGetUniformLocation(basicShader->programHandle, "model");
-		glUniformMatrix4fv(model_location_physXCube, 1, GL_FALSE, glm::value_ptr(model_physXCube));
-		physXCube->modelMatrix = glm::scale(physXCube->modelMatrix, glm::vec3(3.0f));
-		physXCube->draw();
-	}
-	delete[] shapes;
-
 	/* Skybox - ALWAYS DRAW LAST!!!!!!!!!!!!!!!!!!!!!!!!!!!!!11elf
 	* Only 2d objects are allowed to be drawn after skybox
 	/* Change depth function so depth test passes when values are equal to depth buffers content */
-	glDepthFunc(GL_LEQUAL);
-	glDepthMask(GL_FALSE);
-	skyboxShader->useShader();
-	/* Remove translation component from matrix for skybox */
-	view = glm::mat4(glm::mat3(view));
+	{
+		glDepthFunc(GL_LEQUAL);
+		glDepthMask(GL_FALSE);
+		skyboxShader->useShader();
+		/* Remove translation component from matrix for skybox */
+		view = glm::mat4(glm::mat3(view));
 
-	auto& skyboxModel = skybox->modelMatrix;
-	auto skyboxModel_location = glGetUniformLocation(skyboxShader->programHandle, "model");
-	glUniformMatrix4fv(skyboxModel_location, 1, GL_FALSE, glm::value_ptr(skyboxModel));
+		auto& skyboxModel = skybox->modelMatrix;
+		auto skyboxModel_location = glGetUniformLocation(skyboxShader->programHandle, "model");
+		glUniformMatrix4fv(skyboxModel_location, 1, GL_FALSE, glm::value_ptr(skyboxModel));
 
-	view_projection = projection * view;
-	glUniformMatrix4fv(glGetUniformLocation(skyboxShader->programHandle, "proj"),
-		1, GL_FALSE, glm::value_ptr(view_projection));
+		view_projection = projection * view;
+		glUniformMatrix4fv(glGetUniformLocation(skyboxShader->programHandle, "proj"),
+			1, GL_FALSE, glm::value_ptr(view_projection));
 
-	skybox->draw();
-	/* Reset depth function */
-	glDepthFunc(GL_LESS);
-	glDepthMask(GL_TRUE);
+		skybox->draw();
+		/* Reset depth function */
+		glDepthFunc(GL_LESS);
+		glDepthMask(GL_TRUE);
+	}
+
+	/****** HUD ******/
+	{
+		glEnable(GL_BLEND);
+		glBlendFunc(GL_SRC_ALPHA, GL_ONE);
+		glm::mat4 hudProjectionMat = glm::ortho(0.0f, static_cast<GLfloat>(width), 0.0f, static_cast<GLfloat>(height));
+		hudShader->useShader();
+		glUniformMatrix4fv(glGetUniformLocation(hudShader->programHandle, "projection"), 1, GL_FALSE, glm::value_ptr(hudProjectionMat));
+		/* If user is outside boundary(40x40x70) display warning */
+		/*if (camera.get()->getPosition().x < -20
+			|| camera.get()->getPosition().x > 20
+			|| camera.get()->getPosition().y < -20
+			|| camera.get()->getPosition().y > 20
+			|| camera.get()->getPosition().z < -10
+			|| camera.get()->getPosition().z > 60) {
+			renderText("Danger Zone.", 550.0f, 380.0f, 1.0f, glm::vec3(1.0f, 1.0f, 1.0f), characters);
+		}*/
+		/*if (camera.get()->getPosition().z > 25) {
+			renderText("You win!", 550.0f, 380.0f, 1.0f, glm::vec3(1.0f, 1.0f, 1.0f), characters);
+		}*/
+		if (frameTimeDisplay) {
+			renderText(to_string((int)(1.0f / time_delta)) + " FPS", 50.0f, 580.0f, 1.0f, glm::vec3(1.0f, 1.0f, 1.0f), characters);
+		}
+		glDisable(GL_BLEND);
+	}
 
 	// Particle system(s)
 	glBindTexture(GL_TEXTURE_2D, particle);
 
-	// Update particle system position when spaceship moves
-	glm::vec3 newParticlePos = camera->getPosition() + camera->getFront() * 2.2f  + camera->getUp() * 1.2f;
-	spaceship->particleSystem.UpdateParticleGenerationPosition(newParticlePos);
+	// Spaceship auspuff
+	{
+		// Update particle system position when spaceship moves
+		glm::vec3 newParticlePos = camera->getPosition() + camera->getFront() * 2.2f + camera->getUp() * 1.2f;
+		spaceship->particleSystem.UpdateParticleGenerationPosition(newParticlePos);
 
-	spaceship->particleSystem.SetMatrices(&projection, camera->getPosition(), camera->getPosition() + camera->getFront(), camera->getUp());
-	spaceship->particleSystem.UpdateParticles(time_delta);
-	spaceship->particleSystem.RenderParticles();
-
-	if (laser->getShooting()) {
-		laser->particleSystem.SetMatrices(&projection, camera->getPosition(), camera->getPosition() + camera->getFront(), camera->getUp());
-		laser->particleSystem.UpdateParticles(time_delta);
-		laser->particleSystem.RenderParticles();
+		spaceship->particleSystem.SetMatrices(&projection, camera->getPosition(), camera->getPosition() + camera->getFront(), camera->getUp());
+		spaceship->particleSystem.UpdateParticles(time_delta);
+		spaceship->particleSystem.RenderParticles();
 	}
 
-	//update laser when spaceship moves
-	laser->modelMatrix = spaceship->modelMatrix;
-	laser->modelMatrix = glm::scale(laser->modelMatrix, glm::vec3(0.2, 0.2, 100.0));
-	laser->modelMatrix = glm::translate(laser->modelMatrix, camera->getFront() * 1.0f);
-	laser->boundingBox.calculateAABB(laser->meshes, laser->modelMatrix);
-
-	/* HUD */
-	//glm::mat4 hudProjectionMat = glm::ortho(0.0f, static_cast<GLfloat>(width), 0.0f, static_cast<GLfloat>(height));
-	//hudShader->useShader();
-	//glUniformMatrix4fv(glGetUniformLocation(hudShader->programHandle, "projection"), 1, GL_FALSE, glm::value_ptr(hudProjectionMat));
-	///* If user is outside boundary(40x40x70) display warning */
-	//if (camera.get()->getPosition().x < -20 
-	//	|| camera.get()->getPosition().x > 20 
-	//	|| camera.get()->getPosition().y < -20
-	//	|| camera.get()->getPosition().y > 20
-	//	|| camera.get()->getPosition().z < -10
-	//	|| camera.get()->getPosition().z > 60) {
-	//		renderText("Danger Zone.", 550.0f, 380.0f, 1.0f, glm::vec3(1.0f, 1.0f, 1.0f), characters);
-	//}
-	//if (camera.get()->getPosition().z > 25) {
-	//	renderText("You win!", 550.0f, 380.0f, 1.0f, glm::vec3(1.0f, 1.0f, 1.0f), characters);
-	//}
-
-
+	// Laser particles
+	{
+		if (laser->getShooting()) {
+			laser->particleSystem.UpdateParticleGenerationPosition(laser->getPosition());
+			laser->particleSystem.UpdateParticleDirection(camera->getFront() * 500.0f);
+			laser->particleSystem.SetMatrices(&projection, camera->getPosition(), camera->getPosition() + camera->getFront(), camera->getUp());
+			laser->particleSystem.UpdateParticles(time_delta);
+			laser->particleSystem.RenderParticles();
+		}
+		else {
+			// Delete all particles
+			laser->particleSystem.DeleteAllParticles();
+		}
+		////update laser when spaceship moves
+		laser->boundingBox.calculateAABB(laser->meshes, laser->modelMatrix);
+	}
 }
 
 void cleanup() {
@@ -1149,8 +1179,6 @@ void cleanup() {
 	/* Spaceship */
 	textureShader.reset(nullptr);
 	spaceship.reset(nullptr);
-	/* PhysX Cube */
-	physXCube.reset(nullptr);
 	/*Framebuffers*/
 	glDeleteTextures(1, &depthBuffer);
 	glDeleteTextures(2, texColorBuffer);
@@ -1232,65 +1260,4 @@ void prepareFreeTypeCharacters() {
 void renderText(std::string text, GLfloat x, GLfloat y, GLfloat scale, glm::vec3 color, std::map<GLchar, Character> chars) {
 	hudShader->useShader();
 	textQuad->draw(text, x, y, scale, color, chars);
-}
-
-/*initalizes PhysX
-used Tutorial (http://mmmovania.blogspot.co.at/2011/05/simple-bouncing-box-physx3.html) and PhysX Documentation (http://docs.nvidia.com/gameworks/content/gameworkslibrary/physx/guide/Index.html)*/
-void initializePhysX() {
-	gFoundation = PxCreateFoundation(PX_FOUNDATION_VERSION, gAllocator, gErrorCallback);
-
-	gPhysics = PxCreatePhysics(PX_PHYSICS_VERSION, *gFoundation, PxTolerancesScale(), true);
-
-	if (gPhysics == NULL) {
-		std::cerr << "Error creating PhysX device." << endl;
-		glfwTerminate;
-		system("PAUSE");
-		exit(EXIT_FAILURE);
-	}
-
-	PxSceneDesc sceneDesc(gPhysics->getTolerancesScale());
-	sceneDesc.gravity = PxVec3(0.0f, -9.8f, 0.0f);
-	gDispatcher = PxDefaultCpuDispatcherCreate(2);
-	sceneDesc.cpuDispatcher = gDispatcher;
-	sceneDesc.filterShader = PxDefaultSimulationFilterShader;
-	gScene = gPhysics->createScene(sceneDesc);
-
-	if (!gScene) {
-		std::cerr << "create Scene failed!" << endl;
-	}
-
-	//Wut?
-	gScene->setVisualizationParameter(PxVisualizationParameter::eSCALE, 1.0f);
-	gScene->setVisualizationParameter(PxVisualizationParameter::eCOLLISION_SHAPES, 1.0f);
-
-	gMaterial = gPhysics->createMaterial(0.5f, 0.5f, 0.5f);
-
-	//Create actors:
-	//Create ground plane:
-	PxRigidStatic* plane = PxCreatePlane(*gPhysics, PxPlane(0, 1, 0, 2), *gMaterial);
-	if (!plane) {
-		std::cerr << "create plane failed" << endl;
-	}
-	gScene->addActor(*plane);
-}
-
-/*shuts down PhysX*/
-void shutdownPhysX() {
-	gPhysics->release();
-	gFoundation->release();
-}
-
-bool stepPhysX(float dt) {
-	gAccumulator += dt;
-	if (gAccumulator < gStepSize) {
-		return false;
-	}
-
-	gAccumulator -= gStepSize;
-
-	gScene->simulate(gStepSize);
-
-	gScene->fetchResults(true);
-
-	return true;
 }

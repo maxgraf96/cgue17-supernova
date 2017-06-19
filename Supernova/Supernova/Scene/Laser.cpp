@@ -21,6 +21,12 @@ Laser::Laser(glm::mat4& matrix, string const &path) :
 	boundingBox = AABB(meshes, modelMatrix);
 }
 
+void Laser::update(float time_delta, int pressed, glm::mat4& spaceshipMatrix, glm::vec3 cameraFront) {
+	modelMatrix = glm::scale(glm::translate(spaceshipMatrix, cameraFront * 1.0f), glm::vec3(0.2, 0.2, 100.0));
+	//modelMatrix = glm::translate(modelMatrix, glm::vec3(0, 0, 0.2));
+}
+
+void Laser::update(float time_delta, int pressed){}
 
 Laser::~Laser()
 {
