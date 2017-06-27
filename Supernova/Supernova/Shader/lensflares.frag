@@ -40,7 +40,7 @@ void main() {
         result += vec4(textureDistorted(input, offset, direction, distortion) * weight, 1.0);
     }
 
-	//sample halo:
+	//sample halo
 	vec2 haloVec = normalize(ghostVec) * haloWidth;
 	float weight = length(vec2(0.5) - fract(texCoords + haloVec)) / length(vec2(0.5));
 	weight = pow(1.0 - weight, 5.0);

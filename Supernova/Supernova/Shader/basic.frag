@@ -50,7 +50,7 @@ uniform vec3 cameraPos;
 layout(location = 0) out vec4 fragColor;
 layout(location = 1) out vec4 brightColor;
 
-// Calculate directional light - there is only one - our supernova
+// Calculate directional light
 vec3 calculateDirectionalLight(DirectionalLight light, vec3 normal, vec3 viewDir){
 	vec3 lightDir = normalize(-light.direction);
 

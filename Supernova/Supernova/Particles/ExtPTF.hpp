@@ -41,7 +41,7 @@ class ExtPTF
 public:
 	bool InitalizeParticleSystem();
 
-	void RenderParticles();
+	void RenderParticles(bool render);
 	void UpdateParticles(float fTimePassed);
 
 	void UpdateParticleGenerationPosition(glm::vec3 _position);
@@ -49,7 +49,6 @@ public:
 
 	void SetGeneratorProperties(glm::vec3 a_vGenPosition, glm::vec3 a_vGenVelocityMin, glm::vec3 a_vGenVelocityMax, glm::vec3 a_vGenGravityVector, glm::vec3 a_vGenColor, float a_fGenLifeMin, float a_fGenLifeMax, float a_fGenSize, float fEvery, int a_iNumToGenerate);
 
-	void DeleteAllParticles();
 	bool ReleaseParticleSystem();
 
 	int GetNumParticles();

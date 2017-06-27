@@ -15,7 +15,7 @@ Mesh::Mesh(vector<Vertex> _vertices, vector<unsigned int> _indices, vector<Textu
 	this->vertices = _vertices;
 	this->indices = _indices;
 	this->textures = _textures;
-	this->noTextureMaterial = _noTextureMaterial;
+	this->noTextureMaterial = *_noTextureMaterial;
 
 	this->setup();
 }
@@ -44,10 +44,10 @@ void Mesh::draw(Shader* shader) {
 		GLint matDiffuseLoc = glGetUniformLocation(shader->programHandle, "material.diffuse");
 		GLint matSpecularLoc = glGetUniformLocation(shader->programHandle, "material.specular");
 		GLint matShininessLoc = glGetUniformLocation(shader->programHandle, "material.shininess");
-		glUniform3f(matAmbientLoc, noTextureMaterial->getAmbient().r, noTextureMaterial->getAmbient().g, noTextureMaterial->getAmbient().b);
-		glUniform3f(matDiffuseLoc, noTextureMaterial->getDiffuse().r, noTextureMaterial->getDiffuse().g, noTextureMaterial->getDiffuse().b);
-		glUniform3f(matSpecularLoc, noTextureMaterial->getSpecular().r, noTextureMaterial->getSpecular().g, noTextureMaterial->getSpecular().b);
-		glUniform1f(matShininessLoc, noTextureMaterial->getShininess());
+		glUniform3f(matAmbientLoc, noTextureMaterial.getAmbient().r, noTextureMaterial.getAmbient().g, noTextureMaterial.getAmbient().b);
+		glUniform3f(matDiffuseLoc, noTextureMaterial.getDiffuse().r, noTextureMaterial.getDiffuse().g, noTextureMaterial.getDiffuse().b);
+		glUniform3f(matSpecularLoc, noTextureMaterial.getSpecular().r, noTextureMaterial.getSpecular().g, noTextureMaterial.getSpecular().b);
+		glUniform1f(matShininessLoc, noTextureMaterial.getShininess());
 	}
 	// Set shininess -> make changeable later
 	glUniform1f(glGetUniformLocation(shader->programHandle, "material.shininess"), 32.0f);
@@ -93,6 +93,6 @@ void Mesh::setup() {
 
 }
 
-void Mesh::setNoTextureMaterial(Material* material) {
+void Mesh::setNoTextureMaterial(Material material) {
 	noTextureMaterial = material;
 }

@@ -50,7 +50,7 @@ namespace supernova {
 
 				std::unique_ptr<Material> radarMaterial = std::make_unique<Material>(color, color, shininess);
 				for (GLuint i = 0; i < this->meshes.size(); i++) {
-					this->meshes[i].setNoTextureMaterial(radarMaterial.get());
+					this->meshes[i].setNoTextureMaterial(*radarMaterial.get());
 				}
 			}
 			Radar() : Model(glm::mat4(1.0f), "") {}
@@ -249,7 +249,7 @@ namespace supernova {
 
 				std::unique_ptr<Material> sunMaterial = std::make_unique<Material>(color, color, shininess);
 				for (GLuint i = 0; i < this->meshes.size(); i++) {
-					this->meshes[i].setNoTextureMaterial(sunMaterial.get());
+					this->meshes[i].setNoTextureMaterial(*sunMaterial.get());
 				}
 
 				boundingSphere = BoundingSphere(meshes, modelMatrix);
@@ -268,16 +268,37 @@ namespace supernova {
 
 			Asteroid(glm::mat4& matrix, string const & path) : Model(matrix, path), destroyed(false), damage(0) {
 				//Give material (only as long as it is not an asteroid)
-				vec3 color = vec3(0.0f, 0.0f, 1.0f);
+				// Generate more or less random color asteroids
+				glm::vec3 blueGreyish = glm::vec3(0.153f, 0.18f, 0.23f);
+				glm::vec3 darkerGrey = glm::vec3(0.188f, 0.20f, 0.224f);
+				glm::vec3 lighterGrey = glm::vec3(0.58f, 0.58f, 0.58f);
+				glm::vec3 exoticYellow = glm::vec3(100, 0.914f, 0);
+				glm::vec3 exoticRed = glm::vec3(0.506f, 0.024f, 0.024f);
+				glm::vec3 color;
+				int colorSeed = 0 + rand() % 10;
+				if (colorSeed == 2)
+					color = exoticRed;
+				else if (colorSeed == 9)
+					color = exoticYellow;
+				else {
+					colorSeed = 0 + rand() % 10;
+					if (colorSeed < 3)
+						color = blueGreyish;
+					else if (colorSeed >= 3 && colorSeed < 7)
+						color = darkerGrey;
+					else
+						color = lighterGrey;
+				}
+
 				float shininess = 32.0f;
 
-				std::unique_ptr<Material> material = std::make_unique<Material>(color, color, shininess);
+				std::unique_ptr<Material> material = std::make_unique<Material>(color, glm::vec3(1.0f), shininess);
 				for (GLuint i = 0; i < this->meshes.size(); i++) {
-					this->meshes[i].setNoTextureMaterial(material.get());
+					this->meshes[i].setNoTextureMaterial(*material.get());
 				}
 
 				// Make smaller
-				modelMatrix = glm::scale(modelMatrix, glm::vec3(0.9f));
+				//modelMatrix = glm::scale(modelMatrix, glm::vec3(0.9f));
 
 				boundingSphere = BoundingSphere(meshes, modelMatrix);
 			}
@@ -296,7 +317,7 @@ namespace supernova {
 
 			void update(float time_delta, int pressed) override {
 				// Make smaller
-				modelMatrix = glm::scale(modelMatrix, glm::vec3(0.9f));
+				//modelMatrix = glm::scale(modelMatrix, glm::vec3(0.9f));
 			}
 
 			bool getDestroyed() {

@@ -129,14 +129,14 @@ bool radarRotationDirection = false;
 bool radarRetracting = false;
 bool radarRetracted = false;
 
-int width = 1376;
-int height = 768;
+int width = 2560;
+int height = 1440;
 bool fullscreen = false;
 
 float time_delta = 0;
 
 //for enabling features
-bool frustumCulling = true;
+bool frustumCulling = false;
 bool frameTimeDisplay = false;
 bool wireFrame = false;
 bool textureSampling = true;// True bilinear, false nearest neighbor
@@ -664,7 +664,7 @@ void init(GLFWwindow* window) {
 	/* Create lights */
 	/* DIRECTIONAL */
 	sun = std::make_unique<Sun>(glm::mat4(1.0f), "Models/newsun/newsun.obj");
-	vec3 sunLightColor = vec3(1.0f);
+	vec3 sunLightColor = vec3(0.5f);
 	vec3 weaker = vec3(0.5f, 0.5f, 0.5f);
 
 	// Reasonably placed directional lights to simulate the sun
@@ -683,18 +683,18 @@ void init(GLFWwindow* window) {
 
 
 	/* POINT */
-	vec3 lightCubeColor = vec3(0, 0, 0);
+	/*vec3 lightCubeColor = vec3(0, 0, 0);
 	lightCube = std::make_unique<LightCube>(glm::mat4(1.0f), lightCubeShader.get());
 	cubeLight = PointLight(lightCubeColor, lightCubeColor, lightCubeColor, lightCube->getPosition(),
 		1.0f, 0.9f, 0.2f);
-	cubeLight.setInitialized(true);
-	pointLights.push_back(cubeLight);
+	cubeLight.setInitialized(true);*/
+	//pointLights.push_back(cubeLight);
 
 	/* SPOT */
-	vec3 color = vec3(1);
+	vec3 color = vec3(1.0f);
 	vec3 position = camera->getPosition() - 8.5f * camera->getFront();
 	vec3 direction = camera->getFront();
-	headLights = SpotLight(position, color, direction, glm::cos(glm::radians(12.5f)), glm::cos(glm::radians(18.0f)));
+	headLights = SpotLight(position, color, direction, glm::cos(glm::radians(12.5f)), glm::cos(glm::radians(17.0f)));
 	headLights.setInitialized(true);
 	spotLights.push_back(headLights);
 	
@@ -826,10 +826,10 @@ void init(GLFWwindow* window) {
 		glm::vec3(0.1, 0.1, 120), // Maximal velocity
 		glm::vec3(0, 0, 0), // Gravity force applied to particles
 		glm::vec3(1.0f, 0.0f, 0.0f), // Color
-		5.0f, // Minimum lifetime in seconds
-		10.0f, // Maximum lifetime in seconds
+		1.0f, // Minimum lifetime in seconds
+		2.0f, // Maximum lifetime in seconds
 		0.5f, // Rendered size
-		0.05f, // Spawn every x seconds
+		0.1f, // Spawn every x seconds
 		20// And spawn 30 particles);
 	);
 
@@ -845,7 +845,7 @@ void init(GLFWwindow* window) {
 void update(float time_delta, int pressed) {
 	skybox->update(time_delta, pressed);
 
-	lightCube->update(time_delta, pressed);
+	//lightCube->update(time_delta, pressed);
 	startCube->update(time_delta, pressed);
 	midCube->update(time_delta, pressed);
 	finishCube->update(time_delta, pressed);
@@ -857,9 +857,9 @@ void update(float time_delta, int pressed) {
 
 	// Update lights
 	// point lights
-	cubeLight.updatePosition(lightCube->getPosition());
+	/*cubeLight.updatePosition(lightCube->getPosition());
 	pointLights.clear();
-	pointLights.push_back(cubeLight);
+	pointLights.push_back(cubeLight);*/
 
 	// spot lights
 	glm::vec3 newPos = camera->getPosition() + camera->getFront() * 12.0f;
@@ -867,6 +867,23 @@ void update(float time_delta, int pressed) {
 	headLights.updateDirection(camera->getFront());
 	spotLights.clear();
 	spotLights.push_back(headLights);
+
+	// Directional lights
+	for (DirectionalLight& light : dirLights) {
+		glm::vec3 newAmbient = light.getAmbient() + glm::vec3(time_delta * 0.00205f);
+		glm::vec3 newDiffuse = light.getDiffuse() + glm::vec3(time_delta * 0.001025f);
+		//glm::vec3 newSpecular = light.getSpecular() + glm::vec3(time_delta * 0.0082f);
+		if (newAmbient.r > 1)
+			newAmbient = glm::vec3(1.0f);
+		if (newDiffuse.r > 1)
+			newDiffuse = glm::vec3(1.0f);
+		/*if (newSpecular.r > 1)
+			newSpecular = glm::vec3(1.0f);*/
+
+		light.setAmbient(newAmbient);
+		light.setDiffuse(newDiffuse);
+		//light.setSpecular(newSpecular);
+	}
 }
 
 void draw() {
@@ -878,7 +895,7 @@ void draw() {
 	PointLight point_lights_array[20];
 	DirectionalLight dir_lights_array[12];
 	SpotLight spot_lights_array[12];
-	std::copy(pointLights.begin(), pointLights.end(), point_lights_array);
+	//std::copy(pointLights.begin(), pointLights.end(), point_lights_array);
 	std::copy(dirLights.begin(), dirLights.end(), dir_lights_array);
 	std::copy(spotLights.begin(), spotLights.end(), spot_lights_array);
 
@@ -1137,21 +1154,24 @@ void draw() {
 
 		spaceship->particleSystem.SetMatrices(&projection, camera->getPosition(), camera->getPosition() + camera->getFront(), camera->getUp());
 		spaceship->particleSystem.UpdateParticles(time_delta);
-		spaceship->particleSystem.RenderParticles();
+		spaceship->particleSystem.RenderParticles(true);
 	}
 
 	// Laser particles
 	{
 		if (laser->getShooting()) {
 			laser->particleSystem.UpdateParticleGenerationPosition(laser->getPosition());
-			laser->particleSystem.UpdateParticleDirection(camera->getFront() * 500.0f);
+			laser->particleSystem.UpdateParticleDirection(camera->getFront() * 100.0f);
 			laser->particleSystem.SetMatrices(&projection, camera->getPosition(), camera->getPosition() + camera->getFront(), camera->getUp());
 			laser->particleSystem.UpdateParticles(time_delta);
-			laser->particleSystem.RenderParticles();
+			laser->particleSystem.RenderParticles(true);
 		}
 		else {
-			// Delete all particles
-			laser->particleSystem.DeleteAllParticles();
+			laser->particleSystem.UpdateParticleGenerationPosition(laser->getPosition());
+			laser->particleSystem.UpdateParticleDirection(camera->getFront() * 100.0f);
+			laser->particleSystem.SetMatrices(&projection, camera->getPosition(), camera->getPosition() + camera->getFront(), camera->getUp());
+			laser->particleSystem.UpdateParticles(time_delta);
+			laser->particleSystem.RenderParticles(false);
 		}
 		////update laser when spaceship moves
 		laser->boundingBox.calculateAABB(laser->meshes, laser->modelMatrix);

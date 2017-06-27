@@ -175,7 +175,7 @@ Result:	Performs particle rendering on GPU.
 
 /*---------------------------------------------*/
 
-void ExtPTF::RenderParticles()
+void ExtPTF::RenderParticles(bool render)
 {
 	if (!bInitialized)return;
 
@@ -194,10 +194,13 @@ void ExtPTF::RenderParticles()
 	glBindVertexArray(uiVAO[iCurReadBuffer]);
 	glDisableVertexAttribArray(1); // Disable velocity, because we don't need it for rendering
 
-	glDrawArrays(GL_POINTS, 0, iNumParticles);
+	if (render) {
+		glDrawArrays(GL_POINTS, 0, iNumParticles);
+	}
 
 	glDepthMask(1);
 	glDisable(GL_BLEND);
+
 }
 
 /*-----------------------------------------------
@@ -278,11 +281,4 @@ void ExtPTF::UpdateParticleGenerationPosition(glm::vec3 newParticleGenerationPos
 void ExtPTF::UpdateParticleDirection(glm::vec3 newParticleDirection) {
 	vGenVelocityMin = newParticleDirection;
 	vGenVelocityRange = newParticleDirection * 0.2f;
-}
-
-void ExtPTF::DeleteAllParticles() {
-	fGenLifeRange = 0.0f;
-	UpdateParticles(10.0f);
-	RenderParticles();
-	fGenLifeRange = genLifeRangeBackup;
 }

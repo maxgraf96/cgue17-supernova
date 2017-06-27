@@ -38,11 +38,11 @@ namespace supernova {
 			Mesh(vector<Vertex> vertices, vector<unsigned int> indices, vector<Texture> textures, Material* _noTextureMaterial);
 			~Mesh();
 			void draw(Shader* shader);
-			void setNoTextureMaterial(Material* material);
+			void setNoTextureMaterial(Material material);
 		private:
 			GLuint vao, vbo, ebo;
 			// Material, if no texture is specified
-			Material* noTextureMaterial;
+			Material noTextureMaterial;
 			void setup();
 		};
 	}
