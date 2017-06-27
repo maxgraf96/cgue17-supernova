@@ -161,13 +161,13 @@ namespace supernova {
 				float pitch = 0.0f;
 
 				if (forward) {
-					if (speed < 100.0f) {
-						speed += 20.0f * time_delta;
+					if (speed < 70.0f) {
+						speed += 15.0f * time_delta;
 					}
 				}
 				if (backward) {
 					if (speed > 0.0f) {
-						speed -= 2.5f * time_delta;
+						speed -= 15.0f * time_delta;
 					}
 				}
 
@@ -223,6 +223,7 @@ namespace supernova {
 						modelMatrix[3][0] = oldPosition.x;
 						modelMatrix[3][1] = oldPosition.y;
 						modelMatrix[3][2] = oldPosition.z;
+						speed = 0.001;
 					}
 				}
 			}
