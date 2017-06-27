@@ -48,7 +48,7 @@ void main()
 	vec3 motionBlurColor = texture(motionBlur, texCoords).rgb;
 	
 	//TODO: correct addition!
-	vec3 result = 0.5 * color + 0.2 * bloomColor + 0.1 * lensflaresColor + 0.2 * motionBlurColor;
+	vec3 result = 0.4 * color + 0.15 * bloomColor + 0.15 * lensflaresColor + 0.3 * motionBlurColor;
 
 	fragColor = vec4(result, 1.0);
 }

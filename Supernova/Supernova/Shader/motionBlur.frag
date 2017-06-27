@@ -33,7 +33,7 @@ void main() {
 
 	// BLUR
 	// Calculate pixel velocity from previous position
-	vec2 velocity = ((currentPos - previousPos) / 64).xy;
+	vec2 velocity = ((currentPos - previousPos) / 16).xy;
 
 	// At high framerates the blur becomes almost unnoticeable -> adjust the blur length i.e. "velocity" accordingly
 	// That way the blur gives the impression of the game running at 30fps

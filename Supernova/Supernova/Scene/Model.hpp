@@ -161,8 +161,8 @@ namespace supernova {
 				float pitch = 0.0f;
 
 				if (forward) {
-					if (speed < 10.0f) {
-						speed += 2.5f * time_delta;
+					if (speed < 100.0f) {
+						speed += 20.0f * time_delta;
 					}
 				}
 				if (backward) {
@@ -268,16 +268,16 @@ namespace supernova {
 
 			Asteroid(glm::mat4& matrix, string const & path) : Model(matrix, path), destroyed(false), damage(0) {
 				//Give material (only as long as it is not an asteroid)
-				vec3 color = vec3(0.0f, 0.0f, 1.0f);
+				vec3 color = vec3(0.5f, 0.55f, 0.55f);
 				float shininess = 32.0f;
 
-				std::unique_ptr<Material> material = std::make_unique<Material>(color, color, shininess);
+				std::unique_ptr<Material> material = std::make_unique<Material>(color, vec3(1.0f), shininess);
 				for (GLuint i = 0; i < this->meshes.size(); i++) {
 					this->meshes[i].setNoTextureMaterial(material.get());
 				}
 
 				// Make smaller
-				modelMatrix = glm::scale(modelMatrix, glm::vec3(0.9f));
+				modelMatrix = glm::scale(modelMatrix, glm::vec3(1.5f));
 
 				boundingSphere = BoundingSphere(meshes, modelMatrix);
 			}
