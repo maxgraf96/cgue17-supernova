@@ -19,7 +19,7 @@ namespace supernova {
 			Model();
 			Model(glm::mat4& matrix, string const &path);
 			virtual ~Model();
-			virtual void update(float time_delta, int pressed) = 0;
+			virtual void update(float time_delta, int pressed);
 			virtual void draw(Shader* shader);
 			virtual void translate(glm::vec3 direction);
 			// Need bc extending SceneObject - does nothing!

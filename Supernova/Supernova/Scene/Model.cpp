@@ -28,6 +28,8 @@ Model::~Model() {
 
 }
 
+void Model::update(float time_delta, int pressed){}
+
 void Model::draw(Shader* shader) {
 	for (GLuint i = 0; i < this->meshes.size(); i++) {
 		this->meshes[i].draw(shader);

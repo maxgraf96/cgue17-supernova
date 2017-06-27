@@ -78,6 +78,9 @@ std::unique_ptr<Asteroid> asteroid8;
 std::unique_ptr<Asteroid> asteroid9;
 std::unique_ptr<Asteroid> asteroid10;
 
+std::unique_ptr<Model> planet;
+std::unique_ptr<Model> coruscant;
+
 
 int asteroidCount = 0;
 bool won = false;
@@ -741,6 +744,13 @@ void init(GLFWwindow* window) {
 	asteroid10 = std::make_unique<Asteroid>(glm::mat4(1.0f), "Models/meteor/mymeteor.obj");
 	asteroid10->modelMatrix = glm::translate(asteroid10->modelMatrix, glm::vec3(-50.0f, -180.0f, 180.0f));
 
+	/* Planets */
+	planet = std::make_unique<Model>(glm::mat4(1.0f), "Models/planet/planet3.obj");
+	planet->modelMatrix = glm::scale(glm::translate(planet->modelMatrix, glm::vec3(-800.0f, -200.0f, 2200.0f)), glm::vec3(200));
+
+	coruscant = std::make_unique<Model>(glm::mat4(1.0f), "Models/planet/planet3.obj");
+	coruscant->modelMatrix = glm::scale(glm::translate(coruscant->modelMatrix, glm::vec3(0.0f, 0.0f, 0.0f)), glm::vec3(200));
+
 	/* Create lights */
 	/* DIRECTIONAL */
 	sun = std::make_unique<Sun>(glm::mat4(1.0f), "Models/newsun/newsun.obj");
@@ -918,7 +928,7 @@ void init(GLFWwindow* window) {
 	glfwGetWindowSize(window, &width, &height);
 
 	/* glm::perspective takes (fov, aspect, nearPlane, farPlane) */
-	projection = glm::perspective(30.0f, (float )width / (float)height, 0.1f, 2000.0f);
+	projection = glm::perspective(30.0f, (float )width / (float)height, 0.1f, 3000.0f);
 	viewFrustum.setCameraParameters(0.1f, 2000.0f, (float)width / (float)height, 30.0f);
 	}
 
@@ -932,6 +942,8 @@ void update(float time_delta, int pressed) {
 
 	textQuad->update(time_delta, pressed);
 	sun->update(time_delta, pressed);
+	planet->update(time_delta, pressed);
+	coruscant->update(time_delta, pressed);
 
 	textQuad->update(time_delta, pressed);
 
@@ -1031,6 +1043,22 @@ void draw() {
 		auto model_location_radar = glGetUniformLocation(textureShader->programHandle, "model");
 		glUniformMatrix4fv(model_location_radar, 1, GL_FALSE, glm::value_ptr(model_radar));
 		radar->draw(textureShader.get());
+
+		// Planet
+		auto view_projection_location_planet = glGetUniformLocation(textureShader->programHandle, "proj");
+		glUniformMatrix4fv(view_projection_location_planet, 1, GL_FALSE, glm::value_ptr(view_projection));
+		auto& model_planet = planet->modelMatrix;
+		auto model_location_planet = glGetUniformLocation(textureShader->programHandle, "model");
+		glUniformMatrix4fv(model_location_planet, 1, GL_FALSE, glm::value_ptr(model_planet));
+		planet->draw(textureShader.get());
+
+		// Coruscant
+		/*auto view_projection_location_coruscant = glGetUniformLocation(textureShader->programHandle, "proj");
+		glUniformMatrix4fv(view_projection_location_coruscant, 1, GL_FALSE, glm::value_ptr(view_projection));
+		auto& model_coruscant = coruscant->modelMatrix;
+		auto model_location_coruscant = glGetUniformLocation(textureShader->programHandle, "model");
+		glUniformMatrix4fv(model_location_coruscant, 1, GL_FALSE, glm::value_ptr(model_coruscant));
+		coruscant->draw(textureShader.get());*/
 
 	}
 
