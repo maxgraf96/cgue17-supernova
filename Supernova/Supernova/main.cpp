@@ -81,10 +81,14 @@ std::unique_ptr<Asteroid> asteroid10;
 std::unique_ptr<Model> planet;
 std::unique_ptr<Model> coruscant;
 
-
 int asteroidCount = 0;
 bool won = false;
 bool lost = false;
+int mins = 3;
+int sec = 0;
+float buffer = 0;
+int bloomStrength = 2;
+int countForBloom = 0;
 
 // Camera
 std::unique_ptr<Camera> camera;
@@ -142,8 +146,8 @@ bool radarRotationDirection = false;
 bool radarRetracting = false;
 bool radarRetracted = false;
 
-int width = 2560;
-int height = 1440;
+int width = 800;
+int height = 600;
 bool fullscreen = false;
 
 float time_delta = 0;
@@ -260,6 +264,27 @@ void main(int argc, char** argv) {
 		auto time_new = glfwGetTime();
 		time_delta = (float)(time_new - time);
 		time = time_new;
+
+		buffer = buffer + time_delta;
+		if (buffer >= 1) {
+			buffer = buffer - 1;
+			if (sec == 0) {
+				sec = 60;
+				mins = mins - 1;
+			}
+			else {
+				sec = sec - 1;
+			}
+			countForBloom = countForBloom + 1;
+			if (countForBloom == 2) {
+				countForBloom = 0;
+				bloomStrength = bloomStrength + 1;
+			}
+		}
+
+		if (mins == 0 && sec == 0) {
+			lost = true;
+		}
 
 		/* Camera position console output */
 		std::cout << "frametime:" << time_delta * 1000 << "ms =~" << 1.0 / time_delta << "fps" << std::endl;
@@ -832,7 +857,7 @@ void init(GLFWwindow* window) {
 		//based on the Bloom tutorial from "Learn OpenGL" (https://learnopengl.com/#!Advanced-Lighting/Bloom)
 		glGenFramebuffers(2, pingpongFBO);
 		glGenTextures(2, pingpongBuffer);
-		for (GLuint i = 0; i < 2; i++) {
+		for (GLuint i = 0; i < bloomStrength; i++) {
 			glBindFramebuffer(GL_FRAMEBUFFER, pingpongFBO[i]);
 			glBindTexture(GL_TEXTURE_2D, pingpongBuffer[i]);
 			glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
@@ -1321,6 +1346,14 @@ void draw() {
 		}
 		else if (lost) {
 			renderText("You lose!", width / 2 - 0.05 * width, height / 2 + 0.1 * height, 1.0f, glm::vec3(1.0f, 1.0f, 1.0f), characters);
+		}
+		else {
+			if (sec < 10) {
+				renderText(to_string(mins) + ":0" + to_string(sec), width / 2 - 0.025 * width, height - 0.1 * height, 1.0f, glm::vec3(1.0f), characters);
+			}
+			else {
+				renderText(to_string(mins) + ":" + to_string(sec), width / 2 - 0.025 * width, height - 0.1 * height, 1.0f, glm::vec3(1.0f), characters);
+			}
 		}
 
 		glDisable(GL_BLEND);
