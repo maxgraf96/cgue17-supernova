@@ -72,6 +72,16 @@ std::unique_ptr<Asteroid> asteroid2;
 std::unique_ptr<Asteroid> asteroid3;
 std::unique_ptr<Asteroid> asteroid4;
 std::unique_ptr<Asteroid> asteroid5;
+std::unique_ptr<Asteroid> asteroid6;
+std::unique_ptr<Asteroid> asteroid7;
+std::unique_ptr<Asteroid> asteroid8;
+std::unique_ptr<Asteroid> asteroid9;
+std::unique_ptr<Asteroid> asteroid10;
+
+
+int asteroidCount = 0;
+bool won = false;
+bool lost = false;
 
 // Camera
 std::unique_ptr<Camera> camera;
@@ -340,32 +350,82 @@ void main(int argc, char** argv) {
 		boundingSun.setPosition(sun->getPosition());
 		obstacles.push_back(&boundingSun);
 
+		asteroidCount = 0;
+
 		if (!asteroid1->getDestroyed()) {
 			BoundingSphere boundingAsteroid1 = asteroid1->boundingSphere;
 			boundingAsteroid1.setPosition(asteroid1->getPosition());
 			obstacles.push_back(&boundingAsteroid1);
-		}
 
+			asteroidCount++;
+		}
 		if (!asteroid2->getDestroyed()) {
 			BoundingSphere boundingAsteroid2 = asteroid2->boundingSphere;
 			boundingAsteroid2.setPosition(asteroid2->getPosition());
 			obstacles.push_back(&boundingAsteroid2);
-		}
 
+			asteroidCount++;
+		}
 		if (!asteroid3->getDestroyed()) {
 			BoundingSphere boundingAsteroid3 = asteroid3->boundingSphere;
 			boundingAsteroid3.setPosition(asteroid3->getPosition());
 			obstacles.push_back(&boundingAsteroid3);
+
+			asteroidCount++;
 		}
 		if (!asteroid4->getDestroyed()) {
 			BoundingSphere boundingAsteroid4 = asteroid4->boundingSphere;
 			boundingAsteroid4.setPosition(asteroid4->getPosition());
 			obstacles.push_back(&boundingAsteroid4);
+
+			asteroidCount++;
 		}
 		if (!asteroid5->getDestroyed()) {
 			BoundingSphere boundingAsteroid5 = asteroid5->boundingSphere;
 			boundingAsteroid5.setPosition(asteroid5->getPosition());
 			obstacles.push_back(&boundingAsteroid5);
+
+			asteroidCount++;
+		}
+		if (!asteroid6->getDestroyed()) {
+			BoundingSphere boundingAsteroid6 = asteroid6->boundingSphere;
+			boundingAsteroid6.setPosition(asteroid6->getPosition());
+			obstacles.push_back(&boundingAsteroid6);
+
+			asteroidCount++;
+		}
+		if (!asteroid7->getDestroyed()) {
+			BoundingSphere boundingAsteroid7 = asteroid7->boundingSphere;
+			boundingAsteroid7.setPosition(asteroid7->getPosition());
+			obstacles.push_back(&boundingAsteroid7);
+
+			asteroidCount++;
+		}
+		if (!asteroid8->getDestroyed()) {
+			BoundingSphere boundingAsteroid8 = asteroid8->boundingSphere;
+			boundingAsteroid8.setPosition(asteroid8->getPosition());
+			obstacles.push_back(&boundingAsteroid8);
+
+			asteroidCount++;
+		}
+		if (!asteroid9->getDestroyed()) {
+			BoundingSphere boundingAsteroid9 = asteroid9->boundingSphere;
+			boundingAsteroid9.setPosition(asteroid9->getPosition());
+			obstacles.push_back(&boundingAsteroid9);
+
+			asteroidCount++;
+		}
+		if (!asteroid10->getDestroyed()) {
+			BoundingSphere boundingAsteroid10 = asteroid10->boundingSphere;
+			boundingAsteroid10.setPosition(asteroid10->getPosition());
+			obstacles.push_back(&boundingAsteroid10);
+
+			asteroidCount++;
+		}
+
+
+		if (asteroidCount == 0) {
+			won = true;
 		}
 
 		//update spaceship
@@ -396,6 +456,11 @@ void main(int argc, char** argv) {
 			asteroid3->detectHit(&boundingLaser, time_delta);
 			asteroid4->detectHit(&boundingLaser, time_delta);
 			asteroid5->detectHit(&boundingLaser, time_delta);
+			asteroid6->detectHit(&boundingLaser, time_delta);
+			asteroid7->detectHit(&boundingLaser, time_delta);
+			asteroid8->detectHit(&boundingLaser, time_delta);
+			asteroid9->detectHit(&boundingLaser, time_delta);
+			asteroid10->detectHit(&boundingLaser, time_delta);
 		}
 
 		//generate view matrix
@@ -645,21 +710,36 @@ void init(GLFWwindow* window) {
 
 	laser = std::make_unique<Laser>(glm::mat4(1.0f), "Models/cube/cube.obj");
 
-	//Create Interaction things, placeholders for asteroids
+	//Create Asteroids
 	asteroid1 = std::make_unique<Asteroid>(glm::mat4(1.0f), "Models/meteor/mymeteor.obj");
-	asteroid1->modelMatrix = glm::translate(asteroid1->modelMatrix, glm::vec3(20.0f, 60.0f, -100.0f));
+	asteroid1->modelMatrix = glm::translate(asteroid1->modelMatrix, glm::vec3(20.0f, 120.0f, -220.0f));
 
 	asteroid2 = std::make_unique<Asteroid>(glm::mat4(1.0f), "Models/meteor/mymeteor.obj");
-	asteroid2->modelMatrix = glm::translate(asteroid2->modelMatrix, glm::vec3(-10.0f, -10.0f, 130.0f));
+	asteroid2->modelMatrix = glm::translate(asteroid2->modelMatrix, glm::vec3(50.0f, 80.0f, -240.0f));
 
 	asteroid3 = std::make_unique<Asteroid>(glm::mat4(1.0f), "Models/meteor/mymeteor.obj");
-	asteroid3->modelMatrix = glm::translate(asteroid3->modelMatrix, glm::vec3(0.0f, -70.0f, 0.0f));
+	asteroid3->modelMatrix = glm::translate(asteroid3->modelMatrix, glm::vec3(30.0f, 100.0f, -190.0f));
 
 	asteroid4 = std::make_unique<Asteroid>(glm::mat4(1.0f), "Models/meteor/mymeteor.obj");
-	asteroid4->modelMatrix = glm::translate(asteroid4->modelMatrix, glm::vec3(40.0f, -40.0f, 50.0f));
+	asteroid4->modelMatrix = glm::translate(asteroid4->modelMatrix, glm::vec3(80.0f, -80.0f, 100.0f));
 
 	asteroid5 = std::make_unique<Asteroid>(glm::mat4(1.0f), "Models/meteor/mymeteor.obj");
-	asteroid5->modelMatrix = glm::translate(asteroid5->modelMatrix, glm::vec3(-25.0f, -90.0f, 80.0f));
+	asteroid5->modelMatrix = glm::translate(asteroid5->modelMatrix, glm::vec3(30.0f, -80.0f, 140.0f));
+
+	asteroid6 = std::make_unique<Asteroid>(glm::mat4(1.0f), "Models/meteor/mymeteor.obj");
+	asteroid6->modelMatrix = glm::translate(asteroid6->modelMatrix, glm::vec3(-40.0f, 180.0f, 20.0f));
+
+	asteroid7 = std::make_unique<Asteroid>(glm::mat4(1.0f), "Models/meteor/mymeteor.obj");
+	asteroid7->modelMatrix = glm::translate(asteroid7->modelMatrix, glm::vec3(-200.0f, 220.0f, 0.0f));
+
+	asteroid8 = std::make_unique<Asteroid>(glm::mat4(1.0f), "Models/meteor/mymeteor.obj");
+	asteroid8->modelMatrix = glm::translate(asteroid8->modelMatrix, glm::vec3(0.0f, -140.0f, 0.0f));
+
+	asteroid9 = std::make_unique<Asteroid>(glm::mat4(1.0f), "Models/meteor/mymeteor.obj");
+	asteroid9->modelMatrix = glm::translate(asteroid9->modelMatrix, glm::vec3(10.0f, -120.0f, 40.0f));
+
+	asteroid10 = std::make_unique<Asteroid>(glm::mat4(1.0f), "Models/meteor/mymeteor.obj");
+	asteroid10->modelMatrix = glm::translate(asteroid10->modelMatrix, glm::vec3(-50.0f, -180.0f, 180.0f));
 
 	/* Create lights */
 	/* DIRECTIONAL */
@@ -1039,6 +1119,71 @@ void draw() {
 				asteroid5->draw(basicShader.get());
 			}
 		}
+
+		BoundingSphere boundingAsteroid6 = asteroid6->boundingSphere;
+		boundingAsteroid6.setPosition(asteroid6->getPosition());
+
+		if (!frustumCulling || !(viewFrustum.testSphere(&boundingAsteroid6) == viewFrustum.OUTSIDE)) {
+			if (!asteroid6->getDestroyed()) {
+				auto& model_asteroid6 = asteroid6->modelMatrix;
+				auto model_location_asteroid6 = glGetUniformLocation(basicShader->programHandle, "model");
+				glUniformMatrix4fv(model_location_asteroid6, 1, GL_FALSE, glm::value_ptr(model_asteroid6));
+
+				asteroid6->draw(basicShader.get());
+			}
+		}
+
+		BoundingSphere boundingAsteroid7 = asteroid7->boundingSphere;
+		boundingAsteroid7.setPosition(asteroid7->getPosition());
+
+		if (!frustumCulling || !(viewFrustum.testSphere(&boundingAsteroid7) == viewFrustum.OUTSIDE)) {
+			if (!asteroid7->getDestroyed()) {
+				auto& model_asteroid7 = asteroid7->modelMatrix;
+				auto model_location_asteroid7 = glGetUniformLocation(basicShader->programHandle, "model");
+				glUniformMatrix4fv(model_location_asteroid7, 1, GL_FALSE, glm::value_ptr(model_asteroid7));
+
+				asteroid7->draw(basicShader.get());
+			}
+		}
+
+		BoundingSphere boundingAsteroid8 = asteroid8->boundingSphere;
+		boundingAsteroid8.setPosition(asteroid8->getPosition());
+
+		if (!frustumCulling || !(viewFrustum.testSphere(&boundingAsteroid8) == viewFrustum.OUTSIDE)) {
+			if (!asteroid8->getDestroyed()) {
+				auto& model_asteroid8 = asteroid8->modelMatrix;
+				auto model_location_asteroid8 = glGetUniformLocation(basicShader->programHandle, "model");
+				glUniformMatrix4fv(model_location_asteroid8, 1, GL_FALSE, glm::value_ptr(model_asteroid8));
+
+				asteroid8->draw(basicShader.get());
+			}
+		}
+
+		BoundingSphere boundingAsteroid9 = asteroid9->boundingSphere;
+		boundingAsteroid9.setPosition(asteroid9->getPosition());
+
+		if (!frustumCulling || !(viewFrustum.testSphere(&boundingAsteroid9) == viewFrustum.OUTSIDE)) {
+			if (!asteroid9->getDestroyed()) {
+				auto& model_asteroid9 = asteroid9->modelMatrix;
+				auto model_location_asteroid9 = glGetUniformLocation(basicShader->programHandle, "model");
+				glUniformMatrix4fv(model_location_asteroid9, 1, GL_FALSE, glm::value_ptr(model_asteroid9));
+
+				asteroid9->draw(basicShader.get());
+			}
+		}
+
+		BoundingSphere boundingAsteroid10 = asteroid10->boundingSphere;
+		boundingAsteroid10.setPosition(asteroid10->getPosition());
+
+		if (!frustumCulling || !(viewFrustum.testSphere(&boundingAsteroid10) == viewFrustum.OUTSIDE)) {
+			if (!asteroid10->getDestroyed()) {
+				auto& model_asteroid10 = asteroid10->modelMatrix;
+				auto model_location_asteroid10 = glGetUniformLocation(basicShader->programHandle, "model");
+				glUniformMatrix4fv(model_location_asteroid10, 1, GL_FALSE, glm::value_ptr(model_asteroid10));
+
+				asteroid10->draw(basicShader.get());
+			}
+		}
 	}
 
 	{
@@ -1140,6 +1285,16 @@ void draw() {
 		if (frameTimeDisplay) {
 			renderText(to_string((int)(1.0f / time_delta)) + " FPS", 50.0f, 580.0f, 1.0f, glm::vec3(1.0f, 1.0f, 1.0f), characters);
 		}
+
+		renderText(to_string(asteroidCount), width - 0.05 * width, height - 0.1 * height, 1.0f, glm::vec3(1.0f, 1.0f, 1.0f), characters);
+
+		if (won) {
+			renderText("You win!", width / 2 - 0.05 * width, height / 2 + 0.1 * height, 1.0f, glm::vec3(1.0f, 1.0f, 1.0f), characters);
+		}
+		else if (lost) {
+			renderText("You lose!", width / 2 - 0.05 * width, height / 2 + 0.1 * height, 1.0f, glm::vec3(1.0f, 1.0f, 1.0f), characters);
+		}
+
 		glDisable(GL_BLEND);
 	}
 

@@ -161,8 +161,8 @@ namespace supernova {
 				float pitch = 0.0f;
 
 				if (forward) {
-					if (speed < 10.0f) {
-						speed += 2.5f * time_delta;
+					if (speed < 100.0f) {
+						speed += 20.0f * time_delta;
 					}
 				}
 				if (backward) {
@@ -292,13 +292,10 @@ namespace supernova {
 
 				float shininess = 32.0f;
 
-				std::unique_ptr<Material> material = std::make_unique<Material>(color, glm::vec3(1.0f), shininess);
+				std::unique_ptr<Material> material = std::make_unique<Material>(color, vec3(1.0f), shininess);
 				for (GLuint i = 0; i < this->meshes.size(); i++) {
 					this->meshes[i].setNoTextureMaterial(*material.get());
 				}
-
-				// Make smaller
-				//modelMatrix = glm::scale(modelMatrix, glm::vec3(0.9f));
 
 				boundingSphere = BoundingSphere(meshes, modelMatrix);
 			}
